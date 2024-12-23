@@ -1,0 +1,31 @@
+@font-face{
+    font-family: trial;
+    src: url('Futura_Medium.otf');
+    font-weight: bold;
+}
+
+body {
+    background-color: black;
+    color: white;
+    font-family:trial;
+    font-size: 50px;
+    position: fixed;
+    bottom: 150;
+    width: 100%;
+}
+
+.button {
+    background-color:#0f1417;
+    color: #ffffff;
+    font-size: 20px;
+    border:none;
+    border-radius:10px;
+    padding:15px;
+    min-height:30px; 
+    min-width: 120px;
+}
+
+.button:hover {
+    background-color:#310906;
+    transition: 0.7s;
+}

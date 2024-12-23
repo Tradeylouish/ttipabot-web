@@ -1,0 +1,17 @@
+[project]
+name = "ttipabot-web"
+version = "1.0.0"
+description = "Web frontend for TTIPABot"
+requires-python = ">=3.9"
+dependencies = [
+    "flask"
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

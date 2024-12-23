@@ -1,0 +1,23 @@
+<html> 
+  <head> 
+    <title>TTIPABot Web</title> 
+    <link rel="stylesheet" href="/static/style.css" /> 
+  </head> 
+  <body> 
+    <audio id="chant"> 
+      <source src="/static/sardaukar-chant.mp3" type="audio/mp3"> 
+    </audio>
+
+    <audio id="growl">
+      <source src="/static/sardaukar-growl.mp3" type="audio/mp3"> 
+    </audio> 
+
+    <div align="center" id="Attorney name" style="opacity:0;"></div>
+
+    <div align="center">
+        <button type="button" class="button" onclick="startChant()" id="start_button">QUERY IMPERIAL RECORDS</button>
+    </div>
+  
+    <script src="/static/chanter.js" charset="utf-8"></script> 
+  </body> 
+</html> 
