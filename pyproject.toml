@@ -4,7 +4,8 @@ version = "1.0.0"
 description = "Web frontend for TTIPABot"
 requires-python = ">=3.9"
 dependencies = [
-    "flask"
+    "flask",
+    "ttipabot"
 ]
 
 [tool.pytest.ini_options]
