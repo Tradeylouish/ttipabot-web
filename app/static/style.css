@@ -16,6 +16,7 @@ div.text {
     position: fixed;
     bottom: 150px;
     width: 100%;
+    opacity: 0;
 }
 
 .container {

@@ -9,6 +9,7 @@ def serve_page():
 @app.route('/data')
 def data_api(): 
     tt.scrape_register()
-    dates = tt.get_dates(num=2, oldest=False)
+    #dates = tt.get_dates(num=2, oldest=False)
+    dates = ("2025-01-01", "2024-09-03")
     names = tt.compare_registrations(dates, raw=True, pat=True, tm=False)
     return jsonify(names)
