@@ -7,6 +7,15 @@ function getRandomInt(max) {
     return Math.floor(Math.random() * max);
 }
 
+function getData() {
+    let data_url = "/data"
+    fetch(data_url)
+    .then(response => response.json())
+    .then(data => {
+      startChant(data);
+    })
+}
+
 function startChant(text) {
     // Hide the button while chanting
     const button = document.getElementById("Button container");

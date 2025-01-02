@@ -16,19 +16,8 @@
     <div class="text" id="Display text" style="opacity:0;"></div>
 
     <div class="container" id="Button container">
-        <button type="button" class="button" onclick="get_data()" id="start_button">BEGIN TTIPA INITIATION RITUAL</button>
+        <button type="button" class="button" onclick="getData()" id="start_button">BEGIN TTIPA INITIATION RITUAL</button>
     </div>
-    <script>
-      const SCRIPT_ROOT = {{ request.script_root|tojson }};
-      let data_url = `${SCRIPT_ROOT}/data`;
-      function get_data() {
-        fetch(data_url)
-        .then(response => response.json())
-        .then(data => {
-          startChant(data);
-        })
-      }
-    </script>
     <script src="/static/chanter.js" charset="utf-8"></script> 
   </body> 
-</html> 
+</html>

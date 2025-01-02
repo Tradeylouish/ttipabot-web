@@ -29,6 +29,7 @@ div.text {
 .button {
     background-color:#0f1417;
     color: #ffffff;
+    font-family: trial;
     font-size: 20px;
     border:none;
     border-radius:10px;
