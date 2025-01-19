@@ -1,14 +1,18 @@
 let quotes = ["Power over patents is power over all.", 
     "Andrew Blattman commands it. It is done.", 
     "Indefiniteness is the mind-killer.", 
-    "The people who can patent a thing, they control it."];
+    "The people who can patent a thing, they control it.",
+    "The mystery of patent eligibility isn't a problem to solve, but a reality to experience.",
+    "No more terrible disaster could befall your people than for them to fall into the hands of a litigator.",
+    "Patent prosecution teaches the attitude of the knife."];
 
-function getRandomInt(max) {
-    return Math.floor(Math.random() * max);
+function getDailyIndex() {
+    let today = new Date();
+    return today.getDate() % quotes.length;
 }
 
 function getData() {
-    let data_url = "/data"
+    let data_url = "/api/registrations"
     fetch(data_url)
     .then(response => response.json())
     .then(data => {
@@ -16,22 +20,26 @@ function getData() {
     })
 }
 
-function startChant(text) {
+function startChant(attorneys) {
+    console.log(attorneys);
     // Hide the button while chanting
     const button = document.getElementById("Button container");
     button.style.display = "none";
-    
+    let lines = [];
+
     //  Random quote if there's no new attorneys
-    if (text.length === 0) {
-        text.push(quotes[getRandomInt(quotes.length)])
+    if (attorneys.length === 0) {
+        lines.push(quotes[getDailyIndex(quotes.length)]);
         startAudio("growl");
     } else {
+        for (let i = 0; i < attorneys.length; i++) {
+            lines.push(attorneys[i].Name + " of " + attorneys[i].Firm + ".");
+        }
         startAudio("chant");
     }
-    console.log(text);
-
+    
     // Set up text fading
-    const fading_name =  document.getElementById("Display text");
+    const fading_text = document.getElementById("Display text");
     let faded_in = false;
     let opacity = 0;
     let timestamp = performance.now();
@@ -42,7 +50,7 @@ function startChant(text) {
 
     const intervalID = setInterval(fadeText, 16);
     let counter = 0;
-    fading_name.innerHTML = text[0];
+    fading_text.innerHTML = lines[0];
     
     function fadeText() {
         let elapsedTime = performance.now() - timestamp;
@@ -58,19 +66,19 @@ function startChant(text) {
             if (opacity === 0) {
                 faded_in = false;
                 timestamp = performance.now();
-                nextName();
+                nextLine();
             }
         }
-        fading_name.style.opacity = opacity;
+        fading_text.style.opacity = opacity;
     }
 
-    function nextName() {
+    function nextLine() {
         counter++;
-        if(counter >= text.length) {
-            fading_name.innerHTML = "";
+        if(counter >= lines.length) {
+            fading_text.innerHTML = "";
             clearInterval(intervalID);
         } else {
-            fading_name.innerHTML = text[counter];
+            fading_text.innerHTML = lines[counter];
         }
     }
 
@@ -82,7 +90,7 @@ function startChant(text) {
     
     function atAudioEnd(evt) {
         // Restart audio if text is still cycling, otherwise show the button
-        if (counter < text.length) {
+        if (counter < lines.length) {
             evt.currentTarget.play();
         } else {
             button.style.display = "block";
