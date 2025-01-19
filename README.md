@@ -12,4 +12,6 @@ The currently available API endpoints are:
 
 [ttipabot.com/api/names](https://ttipabot.com/api/names): This returns the IP attorneys with the top 10 longest names on the register.
 
+[ttipabot.com/api/firms](https://ttipabot.com/api/firms): This returns the top 10 firms by number of registered IP attorneys.
+
 Support for paramaters in API queries is under development.
