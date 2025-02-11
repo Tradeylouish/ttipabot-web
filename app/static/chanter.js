@@ -12,7 +12,7 @@ function getDailyIndex() {
 }
 
 function getData() {
-    let data_url = "/api/registrations"
+    let data_url = "/api/registrations?filter=pat"
     fetch(data_url)
     .then(response => response.json())
     .then(data => {
