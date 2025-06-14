@@ -3,7 +3,7 @@ from app import app
 import ttipabot
 
 
-def get_filters(args) -> bool:
+def get_filters(args) -> tuple[bool, bool]:
     filters = args.getlist('filter')
     pat = 'pat' in filters
     tm = 'tm' in filters
