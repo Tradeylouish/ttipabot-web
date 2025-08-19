@@ -1,9 +1,37 @@
 from typing import Optional
+
 import sqlalchemy as sa
 import sqlalchemy.orm as so
+from flask import url_for
+
 from app import db
 
-class Attorney(db.Model):
+
+class PaginatedAPIMixin(object):
+    @staticmethod
+    def to_collection_dict(query, page, per_page, endpoint, **kwargs):
+        resources = db.paginate(query, page=page, per_page=per_page,
+                                error_out=False)
+        data = {
+            'items': [item.to_dict() for item in resources.items],
+            '_meta': {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': resources.pages,
+                'total_items': resources.total
+            },
+            '_links': {
+                'self': url_for(endpoint, page=page, per_page=per_page,
+                                **kwargs),
+                'next': url_for(endpoint, page=page + 1, per_page=per_page,
+                                **kwargs) if resources.has_next else None,
+                'prev': url_for(endpoint, page=page - 1, per_page=per_page,
+                                **kwargs) if resources.has_prev else None
+            }
+        }
+        return data
+
+class Attorney(db.Model, PaginatedAPIMixin):
     __tablename__ = 'attorneys'
     id: so.Mapped[int] = so.mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     external_id: so.Mapped[str] = so.mapped_column(sa.String(36), index=True)  # UUID format
@@ -20,7 +48,7 @@ class Attorney(db.Model):
     def __repr__(self):
         return f'<Attorney {self.name}>'
 
-class Firm(db.Model):
+class Firm(db.Model, PaginatedAPIMixin):
     __tablename__ = 'firms'
     id: so.Mapped[int] = so.mapped_column(primary_key=True, autoincrement=True)
     external_id: so.Mapped[str] = so.mapped_column(sa.String(36), index=True)  # UUID format

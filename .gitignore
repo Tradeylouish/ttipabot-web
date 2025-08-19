@@ -7,3 +7,4 @@ build*
 scrapes/*
 *.csv
 *.json
+*.db

@@ -1,8 +1,11 @@
-import pytest
-from pathlib import Path
-from app import scraper, app
 import json
+from pathlib import Path
 
+import pytest
+
+from app import scraper
+
+# TODO Fix these parsing tests by replacing missing examples
 EXAMPLES_FOLDER = Path(__file__).parent / "Examples"
 
 @pytest.fixture(scope="module")
@@ -20,11 +23,6 @@ def example_htmls():
                 html = data  # fallback: treat as raw HTML
             examples[fname.stem] = html
     return examples
-
-@pytest.fixture(scope="session", autouse=True)
-def app_context():
-    with app.app_context():
-        yield
 
 def test_parse_html_fields(example_htmls):
     """Test that parse_html extracts expected fields from example HTML."""

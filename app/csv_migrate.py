@@ -1,9 +1,12 @@
 import datetime
+from pathlib import Path
+
 import pandas as pd
 import sqlalchemy as sa
-from pathlib import Path
-from app import app, db, temporal_db
+
+from app import current_app, db, temporal_db
 from app.models import Attorney
+
 
 def parse_date_from_filename(filename: str) -> datetime.date:
     """Extracts date from filename, expects format YYYY-MM-DD.csv"""
