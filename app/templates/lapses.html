@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "table.html" import render_table %}
+
+{% block content %}
+  {% set headers = ['Name', 'Registration Number', 'Firm', 'Address', 'City', 'State', 'Zip Code', 'Registration Date'] %}
+  {% set keys = ['name', 'registration_number', 'firm', 'address', 'city', 'state', 'zip_code', 'registration_date'] %}
+  {{ render_table('Lapses', headers, '/api/lapses', keys) }}
+{% endblock %}

@@ -1,5 +1,28 @@
-{% extends "base.html" %}
-
-{% block content %}
-
-{% endblock %}
+{% macro render_table(title, headers, api_url, keys) %}
+<div class="container">
+    <h1 class="text">{{ title }}</h1>
+    <table id="data-table">
+        <thead>
+            <tr>
+                {% for header in headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+    <div class="pagination">
+        <button id="prev-button" disabled>Previous</button>
+        <span id="page-info"></span>
+        <button id="next-button" disabled>Next</button>
+    </div>
+</div>
+<script src="/static/table.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = new Table('#data-table', '{{ api_url }}', {{ headers|tojson }}, {{ keys|tojson }});
+        table.fetchData();
+    });
+</script>
+{% endmacro %}

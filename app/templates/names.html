@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% from "table.html" import render_table %}
+
+{% block content %}
+  {% set headers = ['Name',  'Firm', 'Address', 'City', 'State', 'Zip Code', 'Registration Date'] %}
+  {% set keys = ['name', ''
+  {{ render_table('Attorneys', headers, '/api/names', keys) }}
+{% endblock %}

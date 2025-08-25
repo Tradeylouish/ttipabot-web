@@ -42,3 +42,42 @@ div.text {
     background-color:#310906;
     transition: 0.7s;
 }
+
+table {
+    width: 80%;
+    margin: 20px auto;
+    border-collapse: collapse;
+    color: white;
+    font-family: sans-serif;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #333;
+}
+
+.pagination {
+    text-align: center;
+    margin-top: 20px;
+    color: white;
+}
+
+.pagination button {
+    background-color: #0f1417;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    margin: 0 5px;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
