@@ -4,7 +4,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 
 from app import create_app, db
-from app.csv_migrate import migrate_csvs
+from app.csv_handler import migrate_csvs
 from app.models import Attorney, Firm
 
 app = create_app()
