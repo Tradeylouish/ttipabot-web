@@ -59,6 +59,7 @@ function startChant(data) {
     // Hide the button while chanting
     const button = document.getElementById("Button container");
     button.style.display = "none";
+    let audioFinished = false;
     let lines = [];
     let selected = window.selectedHeader || 'registrations';
 
@@ -127,7 +128,10 @@ function startChant(data) {
         if (counter >= lines.length) {
             fading_text.innerHTML = "";
             clearInterval(intervalID);
-            button.style.display = "block";
+            // If the audio has finished, show the button
+            if (audioFinished) {
+                button.style.display = "block";
+            }
         } else {
             fading_text.innerHTML = lines[counter];
         }
@@ -135,6 +139,16 @@ function startChant(data) {
 
     function startAudio(id) {
         let audio = document.getElementById(id);
+        audioFinished = false;
         audio.play();
+        audio.addEventListener('ended', atAudioEnd);
+    }
+
+    function atAudioEnd(evt) {
+        // If the audio ends and the chanting is done, show the button
+        audioFinished = true;
+        if (counter >= lines.length) {
+            button.style.display = "block";
+        }
     }
 }
