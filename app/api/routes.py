@@ -23,8 +23,8 @@ def registrations():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
-    first_date = request.args.get('first_date', datetime.date.today() - datetime.timedelta(days=7), type=toDate)
-    last_date = request.args.get('last_date', datetime.date.today(), type=toDate)
+    first_date = request.args.get('first_date', default=datetime.date.today() - datetime.timedelta(days=7), type=to_date)
+    last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
 
     query = queries.get_registrations_query(first_date, last_date, pat, tm)
     
@@ -39,62 +39,28 @@ def registrations():
 @bp.route('/movements')
 def movements():
     pat, tm = get_filters(request.args)
-    first_date = request.args.get('first_date', datetime.date.today() - datetime.timedelta(days=7), type=toDate)
-    last_date = request.args.get('last_date', datetime.date.today(), type=toDate)
+    first_date = request.args.get('first_date', datetime.date.today() - datetime.timedelta(days=7), type=to_date)
+    last_date = request.args.get('last_date', datetime.date.today(), type=to_date)
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
     query = queries.get_movements_query(first_date, last_date, pat, tm)
-    
-    resources = db.paginate(query, page=page, per_page=per_page, error_out=False)
-
-    items = []
-    for old_rec, new_rec in resources.items:
-        items.append({
-            'attorney_name': new_rec.name,
-            'external_id': new_rec.external_id,
-            'movement_date': new_rec.valid_from.isoformat(),
-            'from_firm': {
-                'name': old_rec.firm,
-                'address': old_rec.address
-            },
-            'to_firm': {
-                'name': new_rec.firm,
-                'address': new_rec.address
-            }
-        })
-
+   
     endpoint_kwargs = {
+        'first_date': first_date.isoformat(),
+        'last_date': last_date.isoformat(),
         'filter': request.args.getlist('filter')
-    }
-    if first_date:
-        endpoint_kwargs['first_date'] = first_date.isoformat()
-    if last_date:
-        endpoint_kwargs['last_date'] = last_date.isoformat()
+    } 
+    return Attorney.to_collection_dict(query, page, per_page, 'api.movements', **endpoint_kwargs)
 
-    response = {
-        'items': items,
-        '_meta': {
-            'page': page,
-            'per_page': per_page,
-            'total_pages': resources.pages,
-            'total_items': resources.total
-        },
-        '_links': {
-            'self': url_for('api.movements', page=page, per_page=per_page, **endpoint_kwargs),
-            'next': url_for('api.movements', page=page + 1, per_page=per_page, **endpoint_kwargs) if resources.has_next else None,
-            'prev': url_for('api.movements', page=page - 1, per_page=per_page, **endpoint_kwargs) if resources.has_prev else None
-        }
-    }
-    return response
 
 @bp.route('/lapses')
 def lapses():
     pat, tm = get_filters(request.args)
-    first_date_str = request.args.get('first_date')
-    last_date_str = request.args.get('last_date')
-    first_date = datetime.date.today() - datetime.timedelta(days=7) if not first_date_str else datetime.date.fromisoformat(first_date_str)
-    last_date = datetime.date.today() if not last_date_str else datetime.date.fromisoformat(last_date_str)
+
+    first_date = request.args.get('first_date', default=datetime.date.today() - datetime.timedelta(days=7), type=to_date)
+    last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
+
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 

@@ -4,23 +4,24 @@ from app import db
 from app.models import Attorney, Firm
 
 
-def temporal_read(model, as_of_date, *criterion):
+def temporal_query(model, as_of_date, *criterion, columns=None):
     """
     Query records valid as of a given date, with optional additional filters.
+    Optionally select specific columns.
     """
-    # Check this logic makes sense for scrapes on consecutive days
-    query = (
-        sa.select(model)
-        .where(
-            model.valid_from <= as_of_date,
-            sa.or_(
-                model.valid_to == None,
-                model.valid_to > as_of_date
-            ),
-            *criterion
-        )
+    if columns is not None:
+        query = sa.select(*columns)
+    else:
+        query = sa.select(model)
+    query = query.where(
+        model.valid_from <= as_of_date,
+        sa.or_(
+            model.valid_to == None,
+            model.valid_to > as_of_date
+        ),
+        *criterion
     )
-    return db.session.execute(query).scalars().all()
+    return query
 
 def temporal_write(model, records: list, as_of_date):
     """
@@ -33,27 +34,15 @@ def temporal_write(model, records: list, as_of_date):
       - For any currently valid record in the DB whose external_id is NOT in the incoming list,
         set its valid_to to as_of_date (mark as lapsed).
     """
-    # Only support Attorney model for now
+
     incoming_ids = {rec.external_id for rec in records}
-    current_valid = temporal_read(model, as_of_date)
+    current_query = temporal_query(model, as_of_date)
+    current_valid = db.session.execute(current_query).scalars().all()
 
     # Mark as lapsed any record not in the incoming list
     for existing in current_valid:
         if existing.external_id not in incoming_ids:
             existing.valid_to = as_of_date
-
-    # Explicit field comparison for Attorney
-    def attorney_fields_equal(a, b):
-        return (
-            a.external_id == b.external_id and
-            a.name == b.name and
-            (a.phone or None) == (b.phone or None) and
-            (a.email or None) == (b.email or None) and
-            (a.firm or None) == (b.firm or None) and
-            (a.address or None) == (b.address or None) and
-            bool(a.patents) == bool(b.patents) and
-            bool(a.trademarks) == bool(b.trademarks)
-        )
 
     for rec in records:
         ext_id = rec.external_id
@@ -62,14 +51,10 @@ def temporal_write(model, records: list, as_of_date):
         if not existing:
             db.session.add(rec)
         else:
-            if not attorney_fields_equal(existing, rec):
+            # Comparison relies on appropriate __eq__ method being defined in model
+            if existing != rec:
                 existing.valid_to = as_of_date
                 rec.valid_from = as_of_date
                 rec.valid_to = None
                 db.session.add(rec)
     db.session.commit()
-
-# Example usage:
-# attorneys = [Attorney(...), ...]
-# temporal_write(Attorney, attorneys, as_of_date)
-# results = temporal_read(Attorney, as_of_date, Attorney.name == "John Doe")

@@ -51,6 +51,18 @@ class Attorney(db.Model, PaginatedAPIMixin):
     def name_length(self):
         return len(self.name)
 
+    def previous_firm(self):
+        # Query for previous firm record
+        query = sa.select(Attorney).where(
+            sa.and_(
+                Attorney.external_id == self.external_id,
+                Attorney.valid_from < self.valid_from,
+                Attorney.firm != self.firm
+            )
+        ).order_by(Attorney.valid_from.desc())
+        prev = db.session.execute(query).scalars().first()
+        return prev.firm if prev else self.firm
+
     def to_dict(self):
         return {
             "id" : self.external_id,
@@ -59,6 +71,7 @@ class Attorney(db.Model, PaginatedAPIMixin):
             "phone" : self.phone,
             "email" : self.email,
             "firm" : self.firm,
+            "previous_firm": self.previous_firm(),
             "address" : self.address,
             "patents" : self.patents,
             "trademarks" : self.trademarks
@@ -66,6 +79,22 @@ class Attorney(db.Model, PaginatedAPIMixin):
 
     def __repr__(self):
         return f'<Attorney {self.name}>'
+    
+    def __eq__(self, other):
+        # For determining if two Attorney records from different dates are unchanged
+        if not isinstance(other, Attorney):
+            return NotImplemented
+        return (
+            self.external_id == other.external_id and
+            self.name == other.name and
+            (self.phone or None) == (other.phone or None) and
+            (self.email or None) == (other.email or None) and
+            (self.firm or None) == (other.firm or None) and
+            (self.firm_id or None) == (other.firm_id or None) and
+            (self.address or None) == (other.address or None) and
+            bool(self.patents) == bool(other.patents) and
+            bool(self.trademarks) == bool(other.trademarks)
+        )
 
 class Firm(db.Model, PaginatedAPIMixin):
     __tablename__ = 'firms'

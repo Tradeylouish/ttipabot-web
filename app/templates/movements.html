@@ -1,8 +1,0 @@
-{% extends "base.html" %}
-{% from "table.html" import render_table %}
-
-{% block content %}
-  {% set headers = ['Attorney Name', 'Registration Number', 'Movement Date', 'From Firm', 'To Firm'] %}
-  {% set keys = ['attorney_name', 'external_id', 'movement_date', 'from_firm', 'to_firm'] %}
-  {{ render_table('Movements', headers, '/api/movements', keys) }}
-{% endblock %}

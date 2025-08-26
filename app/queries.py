@@ -5,13 +5,15 @@ import sqlalchemy as sa
 
 from app import db, temporal_db
 from app.models import Attorney, Firm
+from app.temporal_db import temporal_query
 
 
 def print_head():
-    attorneys = temporal_db.temporal_read(
+    attorney_query = temporal_db.temporal_query(
         temporal_db.Attorney,
-        '2025-05-15'
+        datetime.datetime.now().date()
     )
+    attorneys = db.session.execute(attorney_query).scalars().all()
     print(attorneys)
 
 def dump_attorneys_to_csv(csv_path: str):
@@ -66,51 +68,48 @@ def get_registrations_query(first_date, last_date, pat=False, tm=False):
     """
     Returns a query for new attorneys registered between two dates.
     """
+    
+    subquery = temporal_db.temporal_query(
+        model=Attorney, 
+        as_of_date=first_date, 
+        columns=[Attorney.external_id])
+
+    diff_query = temporal_db.temporal_query(Attorney, last_date).where(Attorney.external_id.notin_(subquery))
+
     filters = []
     if pat:
         filters.append(Attorney.patents)
     if tm:
         filters.append(Attorney.trademarks)
 
-    subquery = sa.select(Attorney.external_id).where(Attorney.valid_from < first_date)
-    filters.append(Attorney.external_id.notin_(subquery))
-    filters.append(Attorney.valid_from >= first_date)
-    filters.append(Attorney.valid_from <= last_date)
-
-    return sa.select(Attorney).where(*filters)
+    return diff_query.where(*filters)
 
 def get_lapses_query(first_date, last_date, pat=False, tm=False):
     """
     Returns a query for attorneys whose registration lapsed between two dates.
     """
-    a2 = sa.orm.aliased(Attorney)
-    subquery = (
-        sa.select(a2)
-        .where(a2.external_id == Attorney.external_id)
-        .where(a2.valid_from > Attorney.valid_from)
-        .exists()
-    )
 
-    filters = [
-        Attorney.valid_to.between(first_date, last_date),
-        sa.not_(subquery)
-    ]
+    subquery = temporal_db.temporal_query(
+        model=Attorney, 
+        as_of_date=last_date, 
+        columns=[Attorney.external_id])
+
+    diff_query = temporal_db.temporal_query(Attorney, first_date).where(Attorney.external_id.notin_(subquery))
+
+    filters = []
 
     if pat:
         filters.append(Attorney.patents)
     if tm:
         filters.append(Attorney.trademarks)
 
-    return sa.select(Attorney).where(*filters)
+    return diff_query.where(*filters)
 
 def get_attorneys_query(query_date, order_by_param='+name', pat=False, tm=False):
     """
     Returns a query for attorneys valid on a given date, with filtering and ordering.
     """
-    query = sa.select(Attorney).where(
-        Attorney.valid_from <= query_date,
-        sa.or_(Attorney.valid_to >= query_date, Attorney.valid_to.is_(None))
-    )
+    query = temporal_db.temporal_query(Attorney, query_date)
 
     filters = []
     if pat:
@@ -137,37 +136,23 @@ def get_attorneys_query(query_date, order_by_param='+name', pat=False, tm=False)
 
     return query
 
-def get_movements_query(first_date=None, last_date=None, pat=False, tm=False):
-    """
-    Returns a query for attorney movements between firms.
-    """
-    a1 = sa.orm.aliased(Attorney, name="a1") # new record
-    a2 = sa.orm.aliased(Attorney, name="a2") # old record
+def get_movements_query(first_date, last_date, pat=False, tm=False):
+    # Subqueries for attorneys valid on first_date and last_date
+    first_subq = temporal_query(Attorney, first_date).subquery()
+    last_subq = temporal_query(Attorney, last_date).subquery()
 
-    subquery = (
-        sa.select(Attorney.id)
-        .where(Attorney.external_id == a1.external_id)
-        .where(Attorney.valid_from > a2.valid_from)
-        .where(Attorney.valid_from < a1.valid_from)
-        .exists()
+    # Join on external_id, filter for differing firm, exclude new registrations
+    query = sa.select(Attorney).join(
+    first_subq,
+    Attorney.external_id == first_subq.c.external_id
+    ).where(
+        Attorney.valid_from <= last_date,
+        sa.or_(
+            Attorney.valid_to == None,
+            Attorney.valid_to > last_date
+        ),
+        Attorney.firm != first_subq.c.firm
     )
-
-    query = (
-        sa.select(a2, a1)
-        .join(a1, a1.external_id == a2.external_id)
-        .where(a1.firm != a2.firm)
-        .where(sa.not_(subquery))
-        .order_by(a1.valid_from.desc())
-    )
-
-    if first_date and last_date:
-        query = query.where(a1.valid_from.between(first_date, last_date))
-
-    if pat:
-        query = query.where(a1.patents)
-    if tm:
-        query = query.where(a1.trademarks)
-        
     return query
 
 def get_firms_query(date, order_by_param='+name', pat=False, tm=False):

@@ -1,8 +1,0 @@
-{% extends "base.html" %}
-{% from "table.html" import render_table %}
-
-{% block content %}
-  {% set headers = ['Rank', 'Firm Name', 'Attorney Count'] %}
-  {% set keys = ['rank', 'firm_name', 'attorney_count'] %}
-  {{ render_table('Firms', headers, '/api/firms', keys) }}
-{% endblock %}
