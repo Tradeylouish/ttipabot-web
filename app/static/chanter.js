@@ -38,7 +38,7 @@ function getData() {
             data_url = "/api/attorneys?orderBy=-name_length";
             break;
         case 'movements':
-            data_url = "/api/movements?first_date=2024-06-16";
+            data_url = "/api/movements";
             break;
         case 'lapses':
             data_url = "/api/lapses";
