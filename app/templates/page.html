@@ -2,13 +2,18 @@
 <html> 
   <head> 
     <title>TTIPABot Web</title> 
-    <link rel="stylesheet" href="/static/style.css?v=1" /> 
+    <link rel="stylesheet" href="/static/style.css?v=2" /> 
   </head> 
   <body> 
+    <div class="header">
+      <button class="header-btn selected" id="registrations-btn" onclick="selectHeader('registrations')">Registrations</button>
+      <button class="header-btn" id="names-btn" onclick="selectHeader('names')">Names</button>
+      <button class="header-btn" id="movements-btn" onclick="selectHeader('movements')">Movements</button>
+      <button class="header-btn" id="lapses-btn" onclick="selectHeader('lapses')">Lapses</button>
+    </div>
     <audio id="chant"> 
       <source src="/static/sardaukar-chant.mp3" type="audio/mp3"> 
     </audio>
-
     <audio id="growl">
       <source src="/static/sardaukar-growl.mp3" type="audio/mp3"> 
     </audio> 
@@ -18,6 +23,7 @@
     <div class="container" id="Button container">
         <button type="button" class="button" onclick="getData()" id="start_button">BEGIN RITUAL</button>
     </div>
-    <script src="/static/chanter.js?v=1" charset="utf-8"></script> 
+    <script src="/static/chanter.js?v=2" charset="utf-8"></script> 
   </body> 
+
 </html>

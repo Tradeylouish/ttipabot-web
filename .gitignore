@@ -4,3 +4,7 @@ __pycache__/
 *.log
 .venv/*
 build*
+scrapes/*
+*.csv
+*.json
+*.db
