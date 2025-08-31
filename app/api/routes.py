@@ -27,7 +27,7 @@ def registrations():
     last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
 
     query = queries.get_registrations_query(first_date, last_date, pat, tm)
-    
+
     endpoint_kwargs = {
         'first_date': first_date.isoformat(),
         'last_date': last_date.isoformat(),
@@ -45,12 +45,12 @@ def movements():
     per_page = request.args.get('per_page', 10, type=int)
 
     query = queries.get_movements_query(first_date, last_date, pat, tm)
-   
+
     endpoint_kwargs = {
         'first_date': first_date.isoformat(),
         'last_date': last_date.isoformat(),
         'filter': request.args.getlist('filter')
-    } 
+    }
     return Attorney.to_collection_dict(query, page, per_page, 'api.movements', **endpoint_kwargs)
 
 
@@ -65,7 +65,7 @@ def lapses():
     per_page = request.args.get('per_page', 10, type=int)
 
     query = queries.get_lapses_query(first_date, last_date, pat, tm)
-    
+
     endpoint_kwargs = {
         'first_date': first_date.isoformat(),
         'last_date': last_date.isoformat(),
@@ -79,7 +79,7 @@ def attorneys():
     date = request.args.get('date', default=datetime.date.today(), type=to_date)
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
-    order_by_param = request.args.get('orderBy', default='-name_length', type=str) 
+    order_by_param = request.args.get('orderBy', default='-name_length', type=str)
 
     query = queries.get_attorneys_query(date, order_by_param, pat, tm)
 
@@ -95,11 +95,11 @@ def firms():
     pat, tm = get_filters(request.args)
     date = request.args.get('date', default=datetime.date.today(), type=to_date)
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 1, type=int)
-    order_by_param = request.args.get('orderBy', default='+name', type=str) 
+    per_page = request.args.get('per_page', 10, type=int)
+    order_by_param = request.args.get('orderBy', default='+name', type=str)
 
     query = queries.get_firms_query(date, order_by_param, pat, tm)
-    
+
     endpoint_kwargs = {
         'date': date.isoformat(),
         'filter': request.args.getlist('filter'),

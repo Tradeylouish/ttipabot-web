@@ -1,0 +1,41 @@
+{
+  "TotalTime": 1,
+  "QueryTime": 1,
+  "Signature": "als",
+  "Index": "sitecore_sxa_web_index",
+  "Count": 4,
+  "Results": [
+    {
+      "Id": "mixed-attorney-1",
+      "Language": "en",
+      "Path": "/test/path/mixed-attorney1",
+      "Url": "/test-url-mixed-attorney1",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>Sarah Mitchell</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n        \r\n          <div class=\"block-1\">\r\n            <span> Phone </span>\r\n            <span>\r\n              <a href=\"tel:+61 7 3333 1111\" class=\"btn btn-secondary btn-textOnly\">+61 7 3333 1111</a>\r\n            </span>\r\n          </div>\r\n        \r\n        \r\n        \r\n          <div class=\"block-2\">\r\n            <span> Email </span>\r\n            <span>\r\n              <a href=\"mailto:s.mitchell@mixedlaw.com\" class=\"btn btn-secondary btn-textOnly\">s.mitchell@mixedlaw.com</a>\r\n            </span>\r\n          </div>\r\n        \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Firm </span><span> Mixed IP Solutions </span>\r\n        </div>\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Address </span><span>\r\n            Level 8, 100 George Street, Brisbane QLD 4000 Australia\r\n          </span>\r\n        </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  "
+    },
+    {
+      "Id": "mixed-firm-1",
+      "Language": "en",
+      "Path": "/test/path/mixed-firm1",
+      "Url": "/test-url-mixed-firm1",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n    <div class=\"list-item firm\">\r\n      <div class=\"block\">\r\n        <span> Firm </span>\r\n        <h4>Global IP Partners</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n      \r\n        <div class=\"block-1\">\r\n          <span> Phone </span>\r\n          <span>\r\n            <a href=\"tel:+61 8 9999 8888\" class=\"btn btn-secondary btn-textOnly\">+61 8 9999 8888</a>\r\n          </span>\r\n        </div>\r\n      \r\n      \r\n      \r\n        <div class=\"block-2\">\r\n          <span> Email </span>\r\n          <span>\r\n            <a href=\"mailto:hello@globalip.com.au\" class=\"btn btn-secondary btn-textOnly\">hello@globalip.com.au</a>\r\n          </span>\r\n        </div>\r\n      \r\n\r\n      \r\n      \r\n        <div class=\"block-3\">\r\n          <span> Website </span>\r\n          <span>\r\n              <a class=\"btn btn-secondary btn-textOnly\" target=\"_blank\" rel=\"noopener noreferrer\" href=\"http://www.globalip.com.au\">Global IP Partners</a>\r\n          </span>\r\n        </div>\r\n      \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Company Directors </span>\r\n          <span>David Williams, Emma Thompson, James Rodriguez</span>\r\n        </div>\r\n      \r\n\r\n      \r\n      <div class=\"block\">\r\n        <span> Address </span><span>\r\n          Level 25, 88 Phillip Street, Sydney NSW 2000 Australia\r\n        </span>\r\n      </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-P\">Patents</span>\r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  \r\n\r\n  "
+    },
+    {
+      "Id": "mixed-attorney-2",
+      "Language": "en",
+      "Path": "/test/path/mixed-attorney2",
+      "Url": "/test-url-mixed-attorney2",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>Michael Chen</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n        \r\n        \r\n        \r\n          <div class=\"block-2\">\r\n            <span> Email </span>\r\n            <span>\r\n              <a href=\"mailto:m.chen@independentip.com\" class=\"btn btn-secondary btn-textOnly\">m.chen@independentip.com</a>\r\n            </span>\r\n          </div>\r\n        \r\n      </div>\r\n\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Address </span><span>\r\n            Unit 5, 150 Adelaide Street, Brisbane QLD 4000 Australia\r\n          </span>\r\n        </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-P\">Patents</span>\r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  "
+    },
+    {
+      "Id": "mixed-firm-2",
+      "Language": "en",
+      "Path": "/test/path/mixed-firm2",
+      "Url": "/test-url-mixed-firm2",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n    <div class=\"list-item firm\">\r\n      <div class=\"block\">\r\n        <span> Firm </span>\r\n        <h4>Boutique IP Law</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n      \r\n        <div class=\"block-1\">\r\n          <span> Phone </span>\r\n          <span>\r\n            <a href=\"tel:+64 4 5555 6666\" class=\"btn btn-secondary btn-textOnly\">+64 4 5555 6666</a>\r\n          </span>\r\n        </div>\r\n      \r\n      \r\n      \r\n        <div class=\"block-2\">\r\n          <span> Email </span>\r\n          <span>\r\n            <a href=\"mailto:contact@boutiqueip.co.nz\" class=\"btn btn-secondary btn-textOnly\">contact@boutiqueip.co.nz</a>\r\n          </span>\r\n        </div>\r\n      \r\n\n      \r\n      </div>\r\n\n      \r\n\n      \r\n      <div class=\"block\">\r\n        <span> Address </span><span>\r\n          Level 5, 30 The Terrace, Wellington 6011 New Zealand\r\n        </span>\r\n      </div>\r\n      \r\n\n\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  \r\n\n\n  "
+    }
+  ]
+}

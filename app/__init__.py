@@ -36,4 +36,4 @@ def create_app(config_class=Config):
 
     return app
 
-from app import csv_handler, models, scraper, temporal_db
+from app import data_migrator, models, scraper, temporal_db

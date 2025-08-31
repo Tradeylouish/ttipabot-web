@@ -1,0 +1,33 @@
+{
+  "TotalTime": 1,
+  "QueryTime": 1,
+  "Signature": "als",
+  "Index": "sitecore_sxa_web_index",
+  "Count": 3,
+  "Results": [
+    {
+      "Id": "test-attorney-1",
+      "Language": "en",
+      "Path": "/test/path/attorney1",
+      "Url": "/test-url-attorney1",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>John Smith</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n        \r\n          <div class=\"block-1\">\r\n            <span> Phone </span>\r\n            <span>\r\n              <a href=\"tel:+61 2 1234 5678\" class=\"btn btn-secondary btn-textOnly\">+61 2 1234 5678</a>\r\n            </span>\r\n          </div>\r\n        \r\n        \r\n        \r\n          <div class=\"block-2\">\r\n            <span> Email </span>\r\n            <span>\r\n              <a href=\"mailto:john.smith@example.com\" class=\"btn btn-secondary btn-textOnly\">john.smith@example.com</a>\r\n            </span>\r\n          </div>\r\n        \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Firm </span><span> Example Law Firm </span>\r\n        </div>\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Address </span><span>\r\n            Level 10, 123 Example Street, Sydney NSW 2000 Australia\r\n          </span>\r\n        </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-P\">Patents</span>\r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  "
+    },
+    {
+      "Id": "test-attorney-2",
+      "Language": "en",
+      "Path": "/test/path/attorney2",
+      "Url": "/test-url-attorney2",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>Jane Doe</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n        \r\n          <div class=\"block-1\">\r\n            <span> Phone </span>\r\n            <span>\r\n              <a href=\"tel:+61 3 9876 5432\" class=\"btn btn-secondary btn-textOnly\">+61 3 9876 5432</a>\r\n            </span>\r\n          </div>\r\n        \r\n        \r\n        \r\n          <div class=\"block-2\">\r\n            <span> Email </span>\r\n            <span>\r\n              <a href=\"mailto:jane.doe@patentfirm.com.au\" class=\"btn btn-secondary btn-textOnly\">jane.doe@patentfirm.com.au</a>\r\n            </span>\r\n          </div>\r\n        \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Firm </span><span> Patent Attorneys Australia </span>\r\n        </div>\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Address </span><span>\r\n            Suite 5, 456 Patent Avenue, Melbourne VIC 3000 Australia\r\n          </span>\r\n        </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-P\">Patents</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  "
+    },
+    {
+      "Id": "test-attorney-3",
+      "Language": "en",
+      "Path": "/test/path/attorney3",
+      "Url": "/test-url-attorney3",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>Bob Wilson</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n        \r\n        \r\n        \r\n          <div class=\"block-2\">\r\n            <span> Email </span>\r\n            <span>\r\n              <a href=\"mailto:b.wilson@trademarkfirm.co.nz\" class=\"btn btn-secondary btn-textOnly\">b.wilson@trademarkfirm.co.nz</a>\r\n            </span>\r\n          </div>\r\n        \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Firm </span><span> Trademark Specialists NZ </span>\r\n        </div>\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Address </span><span>\r\n            Level 2, 789 Queen Street, Auckland 1010 New Zealand\r\n          </span>\r\n        </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  "
+    }
+  ]
+}

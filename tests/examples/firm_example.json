@@ -1,0 +1,25 @@
+{
+  "TotalTime": 1,
+  "QueryTime": 1,
+  "Signature": "als",
+  "Index": "sitecore_sxa_web_index",
+  "Count": 2,
+  "Results": [
+    {
+      "Id": "test-firm-1",
+      "Language": "en",
+      "Path": "/test/path/firm1",
+      "Url": "/test-url-firm1",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n    <div class=\"list-item firm\">\r\n      <div class=\"block\">\r\n        <span> Firm </span>\r\n        <h4>ABC IP Law Firm</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n      \r\n        <div class=\"block-1\">\r\n          <span> Phone </span>\r\n          <span>\r\n            <a href=\"tel:+61 2 8765 4321\" class=\"btn btn-secondary btn-textOnly\">+61 2 8765 4321</a>\r\n          </span>\r\n        </div>\r\n      \r\n      \r\n      \r\n        <div class=\"block-2\">\r\n          <span> Email </span>\r\n          <span>\r\n            <a href=\"mailto:contact@abciplaw.com.au\" class=\"btn btn-secondary btn-textOnly\">contact@abciplaw.com.au</a>\r\n          </span>\r\n        </div>\r\n      \r\n\r\n      \r\n      \r\n        <div class=\"block-3\">\r\n          <span> Website </span>\r\n          <span>\r\n              <a class=\"btn btn-secondary btn-textOnly\" target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://www.abciplaw.com.au\">ABC IP Law Firm</a>\r\n          </span>\r\n        </div>\r\n      \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Company Directors </span>\r\n          <span>Alice Cooper, Bob Johnson</span>\r\n        </div>\r\n      \r\n\r\n      \r\n      <div class=\"block\">\r\n        <span> Address </span><span>\r\n          Level 15, 200 Collins Street, Melbourne VIC 3000 Australia\r\n        </span>\r\n      </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-P\">Patents</span>\r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  \r\n\r\n  "
+    },
+    {
+      "Id": "test-firm-2",
+      "Language": "en",
+      "Path": "/test/path/firm2",
+      "Url": "/test-url-firm2",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n    <div class=\"list-item firm\">\r\n      <div class=\"block\">\r\n        <span> Firm </span>\r\n        <h4>XYZ Patent Services</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n      \r\n        <div class=\"block-1\">\r\n          <span> Phone </span>\r\n          <span>\r\n            <a href=\"tel:+64 9 123 4567\" class=\"btn btn-secondary btn-textOnly\">+64 9 123 4567</a>\r\n          </span>\r\n        </div>\r\n      \r\n      \r\n      \r\n        <div class=\"block-2\">\r\n          <span> Email </span>\r\n          <span>\r\n            <a href=\"mailto:info@xyzpatents.co.nz\" class=\"btn btn-secondary btn-textOnly\">info@xyzpatents.co.nz</a>\r\n          </span>\r\n        </div>\r\n      \r\n\r\n      \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Company Directors </span>\r\n          <span>Michael Brown</span>\r\n        </div>\r\n      \r\n\r\n      \r\n      <div class=\"block\">\r\n        <span> Address </span><span>\r\n          Suite 10, 50 Queen Street, Auckland 1010 New Zealand\r\n        </span>\r\n      </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-P\">Patents</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  \r\n\r\n  "
+    }
+  ]
+}

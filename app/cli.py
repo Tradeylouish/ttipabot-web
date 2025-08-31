@@ -1,10 +1,11 @@
 import datetime
+import json
 from pathlib import Path
 
 import click
 from flask import Blueprint
 
-from app import csv_handler, db, queries, scraper
+from app import data_migrator, db, queries, scraper
 from app.models import Attorney, Firm
 
 bp = Blueprint('cli', __name__, cli_group=None)
@@ -18,7 +19,7 @@ def print_table(headers, rows):
 
     table_data = [headers] + [[str(cell) for cell in row] for row in rows]
     col_widths = [max(len(cell) for cell in col) for col in zip(*table_data)]
-    
+
     header_line = " | ".join(f"{cell:<{col_widths[i]}}" for i, cell in enumerate(headers))
     click.echo(header_line)
     click.echo("-" * len(header_line))
@@ -38,17 +39,17 @@ def get_default_today():
     return datetime.date.today().isoformat()
 
 dates_option = click.option(
-    '--dates', 
-    nargs=2, 
+    '--dates',
+    nargs=2,
     type=click.DateTime(formats=["%Y-%m-%d"]),
-    default=get_default_date_range, 
+    default=get_default_date_range,
     help='Start and end date (YYYY-MM-DD). Defaults to the last 7 days.'
 )
 
 date_option = click.option(
-    '--date', 
+    '--date',
     type=click.DateTime(formats=["%Y-%m-%d"]),
-    default=get_default_today, 
+    default=get_default_today,
     help='Date for query (YYYY-MM-DD). Defaults to today.'
 )
 
@@ -64,7 +65,7 @@ def ttipabot():
     pass
 
 # --- Individual Commands ---
-        
+
 @ttipabot.command()
 def test():
     click.echo("Hello world")
@@ -72,45 +73,50 @@ def test():
 @ttipabot.command()
 def scrape():
     """Scrape the TTIPA register."""
-    if scraper.scrape_register():
-        click.echo("Finished today's register scrape.")
-    else:
-        click.echo("Already scraped the register today.")
-        
+    scraper.scrape_register()
+    click.echo("Finished today's register scrape and DB update.")
+
 @ttipabot.command()
 def migrate_csvs():
-    """Migrate CSV files to the database."""
+    """Migrate historical CSV files to the database. Should be done after a single scrape to match up external IDs."""
     csv_directory = Path("scrapes")
-    print("Ran command migrate_csvs")
+    click.echo("Migration CSV data from scrapes directory")
 
     try:
-        csv_handler.migrate_csvs(csv_directory)
+        data_migrator.migrate_csvs(csv_directory)
     except FileNotFoundError as e:
-        print(f"Error: {e}")
+        click.echo(f"Error: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        
+        click.echo(f"An unexpected error occurred: {e}")
+
+    # Delete the newest scrape and readd it to complete migration
+    data_migrator.delete_new_scrapes()
+    scraper.scrape_register()
 
 @ttipabot.command()
-def prepopulate():
-    # attorney = Attorney()
-    # attorney.external_id = 2
-    # attorney.name = "Louis H-S"
-    # attorney.email = "louis@example.com"
-    # attorney.firm = "Example Firm"
-    # attorney.address = "123 Street"
-    # attorney.phone = "123456"
-    # attorney.patents = False
-    # attorney.trademarks = True
-    # attorney.valid_from = datetime.date.today()
-    # db.session.add(attorney)
-    # db.session.commit()
-
-    firm = Firm()
-    firm.name = "Example Firm"
-    firm.external_id = "firm-123"
-    db.session.add(firm)
-    db.session.commit()
+@click.argument('replace_id', required=False)
+@click.argument('new_id', required=False)
+@click.option('--file', type=click.Path(exists=True), help='JSON file with patches.')
+def patch_ext_ids(replace_id, new_id, file):
+    """Updates external_ids in the database from a file or arguments."""
+    if file:
+        try:
+            with open(file) as f:
+                patches = json.load(f)
+            for old, new in patches.items():
+                data_migrator.patch_external_ids(old, new)
+                click.echo(f"Successfully patched external_id '{old}' to '{new}'.")
+            click.echo("All patches from file processed successfully.")
+        except Exception as e:
+            click.echo(f"An error occurred while processing the file: {e}")
+    elif replace_id and new_id:
+        try:
+            data_migrator.patch_external_ids(replace_id, new_id)
+            click.echo(f"Successfully patched external_id '{replace_id}' to '{new_id}'.")
+        except Exception as e:
+            click.echo(f"An error occurred: {e}")
+    else:
+        click.echo("Please provide either a --file option or both a replace_id and new_id.")
 
 @ttipabot.command()
 def dump():
@@ -121,7 +127,7 @@ def dump():
 @ttipabot.command()
 @dates_option
 @pat_option
-@tm_option 
+@tm_option
 def movements(dates, pat, tm):
     """Lists attorney movements in a given period."""
     first_date, last_date = dates[0].date(), dates[1].date()
@@ -133,11 +139,11 @@ def movements(dates, pat, tm):
     headers = ["Name", "From Firm", "To Firm", "Movement Date"]
     rows = [[new.name, old.firm, new.firm, new.valid_from.isoformat()] for old, new in results]
     print_table(headers, rows)
-    
+
 @ttipabot.command()
 @dates_option
 @pat_option
-@tm_option 
+@tm_option
 def registrations(dates, pat, tm):
     """Lists new attorneys registered in a given period."""
     first_date, last_date = dates[0].date(), dates[1].date()
@@ -145,7 +151,7 @@ def registrations(dates, pat, tm):
     click.echo(f"\nFinding new registrations between {first_date.isoformat()} and {last_date.isoformat()}\n")
     query = queries.get_registrations_query(first_date, last_date, pat, tm)
     results = db.session.execute(query).scalars().all()
-    
+
     def get_reg_type(attorney):
         if attorney.patents and attorney.trademarks:
             return "Patents & Trademarks"
@@ -162,7 +168,7 @@ def registrations(dates, pat, tm):
 @ttipabot.command()
 @dates_option
 @pat_option
-@tm_option 
+@tm_option
 def lapses(dates, pat, tm):
     """Lists attorneys whose registration lapsed in a given period."""
     first_date, last_date = dates[0].date(), dates[1].date()
@@ -170,7 +176,7 @@ def lapses(dates, pat, tm):
     click.echo(f"\nFinding lapses between {first_date.isoformat()} and {last_date.isoformat()}\n")
     query = queries.get_lapses_query(first_date, last_date, pat, tm)
     results = db.session.execute(query).scalars().all()
-    
+
     headers = ["Name", "Firm", "Lapse Date"]
     rows = [[a.name, a.firm, a.valid_to.isoformat()] for a in results]
     print_table(headers, rows)
@@ -178,7 +184,7 @@ def lapses(dates, pat, tm):
 @ttipabot.command()
 @date_option
 @pat_option
-@tm_option 
+@tm_option
 def names(date, pat, tm):
     """Ranks attorneys by name length on a given date."""
     query_date = date.date()
@@ -192,7 +198,7 @@ def names(date, pat, tm):
 
 @ttipabot.command()
 @pat_option
-@tm_option 
+@tm_option
 def firms(pat, tm):
     """Placeholder for firms command."""
     click.echo("Firms command not implemented yet.")

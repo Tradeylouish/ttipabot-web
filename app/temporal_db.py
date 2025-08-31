@@ -1,10 +1,11 @@
+import datetime
 import sqlalchemy as sa
 
 from app import db
 from app.models import Attorney, Firm
 
 
-def temporal_query(model, as_of_date, *criterion, columns=None):
+def temporal_query(model, as_of_date: datetime.date, criterion: list = None, columns=None):
     """
     Query records valid as of a given date, with optional additional filters.
     Optionally select specific columns.
@@ -13,13 +14,14 @@ def temporal_query(model, as_of_date, *criterion, columns=None):
         query = sa.select(*columns)
     else:
         query = sa.select(model)
+
     query = query.where(
         model.valid_from <= as_of_date,
         sa.or_(
             model.valid_to == None,
             model.valid_to > as_of_date
         ),
-        *criterion
+        *(criterion or [])
     )
     return query
 

@@ -41,7 +41,7 @@ class Attorney(db.Model, PaginatedAPIMixin):
     firm: so.Mapped[Optional[str]] = so.mapped_column(sa.String(128), index=True)
     firm_id: so.Mapped[Optional[int]] = so.mapped_column(sa.ForeignKey('firms.id'),
                                                index=True)
-    firm_record: so.Mapped[Optional["Firm"]] = so.relationship("Firm", back_populates="attorneys") 
+    firm_record: so.Mapped[Optional["Firm"]] = so.relationship("Firm", back_populates="attorneys")
     address: so.Mapped[Optional[str]] = so.mapped_column(sa.String(128))
     patents: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
     trademarks: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
@@ -79,7 +79,7 @@ class Attorney(db.Model, PaginatedAPIMixin):
 
     def __repr__(self):
         return f'<Attorney {self.name}>'
-    
+
     def __eq__(self, other):
         # For determining if two Attorney records from different dates are unchanged
         if not isinstance(other, Attorney):
@@ -90,7 +90,6 @@ class Attorney(db.Model, PaginatedAPIMixin):
             (self.phone or None) == (other.phone or None) and
             (self.email or None) == (other.email or None) and
             (self.firm or None) == (other.firm or None) and
-            (self.firm_id or None) == (other.firm_id or None) and
             (self.address or None) == (other.address or None) and
             bool(self.patents) == bool(other.patents) and
             bool(self.trademarks) == bool(other.trademarks)
@@ -108,7 +107,7 @@ class Firm(db.Model, PaginatedAPIMixin):
     address: so.Mapped[Optional[str]] = so.mapped_column(sa.String(128))
     patents: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
     trademarks: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
-    
+
     attorneys: so.Mapped[list["Attorney"]] = so.relationship(back_populates="firm_record")
 
     def to_dict(self):
@@ -125,6 +124,22 @@ class Firm(db.Model, PaginatedAPIMixin):
 
     def __repr__(self):
         return f'<Firm {self.name}>'
-    
+
+    def __eq__(self, other):
+        # For determining if two Attorney records from different dates are unchanged
+        if not isinstance(other, Firm):
+            return NotImplemented
+        return (
+            self.external_id == other.external_id and
+            self.name == other.name and
+            (self.phone or None) == (other.phone or None) and
+            (self.email or None) == (other.email or None) and
+            (self.website or None) == (other.website or None) and
+            (self.directors or None) == (other.directors or None) and
+            (self.address or None) == (other.address or None) and
+            bool(self.patents) == bool(other.patents) and
+            bool(self.trademarks) == bool(other.trademarks)
+        )
+
     def attorney_count(self):
         return len(self.attorneys)
