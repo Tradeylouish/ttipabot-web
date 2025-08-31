@@ -68,10 +68,10 @@ def get_registrations_query(first_date, last_date, pat=False, tm=False):
     """
     Returns a query for new attorneys registered between two dates.
     """
-    
+
     subquery = temporal_db.temporal_query(
-        model=Attorney, 
-        as_of_date=first_date, 
+        model=Attorney,
+        as_of_date=first_date,
         columns=[Attorney.external_id])
 
     diff_query = temporal_db.temporal_query(Attorney, last_date).where(Attorney.external_id.notin_(subquery))
@@ -90,8 +90,8 @@ def get_lapses_query(first_date, last_date, pat=False, tm=False):
     """
 
     subquery = temporal_db.temporal_query(
-        model=Attorney, 
-        as_of_date=last_date, 
+        model=Attorney,
+        as_of_date=last_date,
         columns=[Attorney.external_id])
 
     diff_query = temporal_db.temporal_query(Attorney, first_date).where(Attorney.external_id.notin_(subquery))
@@ -129,7 +129,7 @@ def get_attorneys_query(query_date, order_by_param='+name', pat=False, tm=False)
             'name_length': sa.func.char_length(Attorney.name),
             'firm': sa.func.lower(Attorney.firm)
         }
-        
+
         order_column = order_map.get(order_by_field)
         if order_column is not None:
             query = query.order_by(direction(order_column))
@@ -178,7 +178,7 @@ def get_firms_query(date, order_by_param='+name', pat=False, tm=False):
             'name': Firm.name,
             'attorney_count': sa.func.char_length(Firm.name)
         }
-        
+
         order_column = order_map.get(order_by_field)
         if order_column is not None:
             query = query.order_by(direction(order_column))

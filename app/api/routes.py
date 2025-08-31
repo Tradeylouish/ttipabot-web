@@ -14,7 +14,7 @@ def get_filters(args) -> tuple[bool, bool]:
     tm = 'tm' in filters
     return pat, tm
 
-def to_date(date_str: str) -> str:
+def to_date(date_str: str) -> datetime.date:
     return datetime.date.fromisoformat(date_str)
 
 @bp.route('/registrations')

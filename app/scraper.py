@@ -2,7 +2,6 @@ import pandas as pd
 import sqlalchemy as sa
 import numpy as np
 import datetime
-import glob
 import json
 import logging
 import os
@@ -14,6 +13,7 @@ from app import db, temporal_db
 from app.models import Attorney, Firm
 
 logger = logging.getLogger(__name__)
+
 
 def scrape_register() -> None:
     scrapes_dir = Path("scrapes")
@@ -33,21 +33,25 @@ def scrape_register() -> None:
     logger.info("Updated DB with changes from scraped data.")
     cleanup_older_jsons(file_path)
 
+
 def separate_data(data: list[dict]) -> tuple:
     """Separate data into attorneys and firms."""
     attorneys = []
     firms = []
     for record in data:
-        if 'Attorney' in record:
+        if "Attorney" in record:
             attorneys.append(record)
-        elif 'Firm' in record:
+        elif "Firm" in record:
             firms.append(record)
     return attorneys, firms
+
 
 def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
     """Converts the data to models using pandas for efficient processing."""
 
-    def process_dataframe(data: list[dict], column_map: dict, add_temporal: bool = False) -> pd.DataFrame:
+    def process_dataframe(
+        data: list[dict], column_map: dict, add_temporal: bool = False
+    ) -> pd.DataFrame:
         if not data:
             return pd.DataFrame()
 
@@ -57,24 +61,30 @@ def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
         df = df.rename(columns=column_map)
 
         # Replace empty strings with NaN in 'name' column so they can be dropped
-        df['name'] = df['name'].replace('', np.nan)
+        df["name"] = df["name"].replace("", np.nan)
 
         # Delete rows where name is not present
-        df.dropna(subset=['name'], inplace=True)
+        df.dropna(subset=["name"], inplace=True)
 
         # Handle boolean fields from 'Registered as'
-        registered_col = df.get('Registered as', pd.Series('', index=df.index))
-        df['patents'] = registered_col.astype(str).str.lower().str.contains('patent', na=False)
-        df['trademarks'] = registered_col.astype(str).str.lower().str.contains('trademark|trade mark', na=False)
+        registered_col = df.get("Registered as", pd.Series("", index=df.index))
+        df["patents"] = (
+            registered_col.astype(str).str.lower().str.contains("patent", na=False)
+        )
+        df["trademarks"] = (
+            registered_col.astype(str)
+            .str.lower()
+            .str.contains("trademark|trade mark", na=False)
+        )
 
         # Add temporal fields for attorneys
         if add_temporal:
-            df['valid_from'] = datetime.date.today()
-            df['valid_to'] = None
+            df["valid_from"] = datetime.date.today()
+            df["valid_to"] = None
 
         # Clean up
         df.replace({np.nan: None}, inplace=True)
-        columns_to_drop = ['Registered as', 'Language', 'Path', 'Url', 'Name']
+        columns_to_drop = ["Registered as", "Language", "Path", "Url", "Name"]
         for column in columns_to_drop:
             if column in df.columns:
                 df.drop(columns=[column], inplace=True)
@@ -82,13 +92,22 @@ def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
 
     # Column mappings
     attorney_column_map = {
-        'Id': 'external_id', 'Attorney': 'name', 'Phone': 'phone',
-        'Email': 'email', 'Firm': 'firm', 'Address': 'address'
+        "Id": "external_id",
+        "Attorney": "name",
+        "Phone": "phone",
+        "Email": "email",
+        "Firm": "firm",
+        "Address": "address",
     }
 
     firm_column_map = {
-        'Id': 'external_id', 'Firm': 'name', 'Phone': 'phone',
-        'Email': 'email', 'Company Directors': 'directors', 'Website': 'website', 'Address': 'address'
+        "Id": "external_id",
+        "Firm": "name",
+        "Phone": "phone",
+        "Email": "email",
+        "Company Directors": "directors",
+        "Website": "website",
+        "Address": "address",
     }
 
     # Process data
@@ -96,23 +115,33 @@ def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
     df_firms = process_dataframe(firms, firm_column_map, add_temporal=False)
 
     # Convert to model objects
-    attorney_models = [Attorney(**row) for row in df_attorneys.to_dict(orient='records')] if not df_attorneys.empty else []
-    firm_models = [Firm(**row) for row in df_firms.to_dict(orient='records')] if not df_firms.empty else []
+    attorney_models = (
+        [Attorney(**row) for row in df_attorneys.to_dict(orient="records")]
+        if not df_attorneys.empty
+        else []
+    )
+    firm_models = (
+        [Firm(**row) for row in df_firms.to_dict(orient="records")]
+        if not df_firms.empty
+        else []
+    )
 
     return attorney_models, firm_models
+
 
 def ttipab_request(count: int):
     """Makes a GET request to the TTIPA register asking for <count> results."""
     # Public API endpoint as determined by Inspect Element > Network > Requests on Google Chrome
     endpoint = "https://www.ttipattorney.gov.au//sxa/search/results/"
-    scope= "{21522AF6-8499-4C63-8CFA-02E2B97737BE}"
+    scope = "{21522AF6-8499-4C63-8CFA-02E2B97737BE}"
     itemid = "{8B94FE47-304A-4629-AD46-DD208EEF71AA}"
     sig = "als"
     offset = 0
     page_size = count
     variant = "%7B2FCA44D4-EE00-43EC-BBBF-858C31387413%7D"
-    url =  f"{endpoint}?s={scope}&itemid={itemid}&sig={sig}&e={offset}&p={page_size}&v={variant}"
+    url = f"{endpoint}?s={scope}&itemid={itemid}&sig={sig}&e={offset}&p={page_size}&v={variant}"
     return requests.get(url, stream=True)
+
 
 def delete_control_chars(html: str) -> str:
     # Get rid of control characters
@@ -120,6 +149,7 @@ def delete_control_chars(html: str) -> str:
     html = html.replace("\\n", "")
     html = html.replace("\\", "")
     return html
+
 
 def json_dump_register(file_path: Path) -> bool:
     """Scrapes the register and dumps the data to JSON, returns True on success"""
@@ -141,14 +171,18 @@ def json_dump_register(file_path: Path) -> bool:
             f.write(raw_JSON)
         return True
     except Exception as ex:
-        logger.error("Failed to scrape register, could be a server-side problem.", exc_info=ex)
+        logger.error(
+            "Failed to scrape register, could be a server-side problem.", exc_info=ex
+        )
         raise ex
+
 
 def get_register_data(file_path: Path) -> list[dict]:
     """Extract register data from the JSON dump"""
     raw_JSON = file_path.read_text(encoding="utf-8")
     data = json.loads(raw_JSON)
     return extract_html_data(data["Results"])
+
 
 def extract_html_data(data: list[dict]) -> list[dict]:
     """Extracts additional data fields from the html field of each record"""
@@ -164,6 +198,7 @@ def extract_html_data(data: list[dict]) -> list[dict]:
             continue
 
     return data
+
 
 def merge_write(firms: list[Firm]) -> None:
     """Merges non-temporal scraped data into the database."""
@@ -184,6 +219,7 @@ def merge_write(firms: list[Firm]) -> None:
             db.session.add(firm)
     db.session.commit()
 
+
 def cleanup_older_jsons(keep_file: Path):
     """Delete *.json files in the scrapes directory except the one specified."""
     scrapes_dir = Path("scrapes")
@@ -193,6 +229,7 @@ def cleanup_older_jsons(keep_file: Path):
                 os.remove(fname)
             except Exception as ex:
                 logger.warning(f"Could not delete {fname}: {ex}")
+
 
 def parse_html(html: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
