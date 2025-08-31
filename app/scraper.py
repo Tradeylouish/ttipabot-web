@@ -13,7 +13,7 @@ from app import db, temporal_db
 from app.models import Attorney, Firm
 
 logger = logging.getLogger(__name__)
-
+logging.basicConfig(filename='ttipabot.log', encoding='utf-8', format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 def scrape_register() -> None:
     scrapes_dir = Path("scrapes")
