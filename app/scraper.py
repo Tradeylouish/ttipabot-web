@@ -1,19 +1,19 @@
-import pandas as pd
-import sqlalchemy as sa
-import numpy as np
 import datetime
 import json
-import logging
 import os
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import requests
+import sqlalchemy as sa
 from bs4 import BeautifulSoup
+from flask import current_app
+from requests.adapters import HTTPAdapter, Retry
 
 from app import db, temporal_db
 from app.models import Attorney, Firm
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(filename='ttipabot.log', encoding='utf-8', format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 def scrape_register() -> None:
     scrapes_dir = Path("scrapes")
@@ -22,7 +22,7 @@ def scrape_register() -> None:
     file_path = scrapes_dir / f"{today}.json"
 
     if not json_dump_register(file_path):
-        logger.warning("Already scraped the register today. Reattempting a DB update.")
+        current_app.logger.warning("Already scraped the register today. Reattempting a DB update.")
 
     data = get_register_data(file_path)
     attorneys, firms = separate_data(data)
@@ -30,7 +30,7 @@ def scrape_register() -> None:
     temporal_db.temporal_write(Attorney, attorneys, datetime.date.today())
     merge_write(firms)
 
-    logger.info("Updated DB with changes from scraped data.")
+    current_app.logger.info("Updated DB with changes from scraped data.")
     cleanup_older_jsons(file_path)
 
 
@@ -129,9 +129,8 @@ def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
     return attorney_models, firm_models
 
 
-def ttipab_request(count: int):
+def ttipab_request(count: int, timeout: int = 30, max_retries: int = 3):
     """Makes a GET request to the TTIPA register asking for <count> results."""
-    # Public API endpoint as determined by Inspect Element > Network > Requests on Google Chrome
     endpoint = "https://www.ttipattorney.gov.au//sxa/search/results/"
     scope = "{21522AF6-8499-4C63-8CFA-02E2B97737BE}"
     itemid = "{8B94FE47-304A-4629-AD46-DD208EEF71AA}"
@@ -140,7 +139,16 @@ def ttipab_request(count: int):
     page_size = count
     variant = "%7B2FCA44D4-EE00-43EC-BBBF-858C31387413%7D"
     url = f"{endpoint}?s={scope}&itemid={itemid}&sig={sig}&e={offset}&p={page_size}&v={variant}"
-    return requests.get(url, stream=True)
+    
+    session = requests.Session()
+    retry = Retry(
+        total=max_retries,
+        backoff_factor=0.5,  # Will sleep for [0.5, 1, 2] seconds between retries
+        status_forcelist=[500, 502, 503, 504]  # Retry on these HTTP status codes
+    )
+    session.mount('https://', HTTPAdapter(max_retries=retry))
+    
+    return session.get(url, timeout=timeout)
 
 
 def delete_control_chars(html: str) -> str:
@@ -161,17 +169,36 @@ def json_dump_register(file_path: Path) -> bool:
     try:
         # Initial ping to get count
         initial_response = ttipab_request(1)
+        initial_response.raise_for_status() # Raise HTTPError for bad status codes
         results_count = initial_response.json().get("Count")
         if results_count is None or results_count == 0:
             raise ValueError("API returned an invalid count")
-        raw_JSON = ttipab_request(results_count).text
-        logger.debug(f"Successfully scraped {results_count} results from the register.")
+        
+        full_response = ttipab_request(results_count)
+        full_response.raise_for_status() # Raise HTTPError for bad status codes 
+        raw_JSON = full_response.text
+        current_app.logger.info(f"Successfully scraped {results_count} results from the register.")
         # Save to file for future use
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(raw_JSON)
         return True
+
+    except requests.HTTPError as http_err:
+        current_app.logger.error(
+            f"HTTP error occurred while scraping register: {http_err}", exc_info=http_err
+        )
+        raise http_err
+
+    except requests.RequestException as req_err:
+       current_app.logger.error(
+            "Network error while scraping register",
+            extra={"url": req_err.request.url if req_err.request else None},
+            exc_info=req_err
+        )
+       raise req_err 
+    
     except Exception as ex:
-        logger.error(
+        current_app.logger.error(
             "Failed to scrape register, could be a server-side problem.", exc_info=ex
         )
         raise ex
@@ -194,7 +221,7 @@ def extract_html_data(data: list[dict]) -> list[dict]:
             record.update(parse_html(html))
             del record["Html"]
         except Exception as ex:
-            logger.error("Failed to parse HTML for records", exc_info=ex)
+            current_app.logger.error("Failed to parse HTML for records", exc_info=ex)
             continue
 
     return data
@@ -228,7 +255,7 @@ def cleanup_older_jsons(keep_file: Path):
             try:
                 os.remove(fname)
             except Exception as ex:
-                logger.warning(f"Could not delete {fname}: {ex}")
+                current_app.logger.warning(f"Could not delete {fname}: {ex}")
 
 
 def parse_html(html: str) -> dict:
