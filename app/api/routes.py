@@ -1,7 +1,7 @@
 import datetime
 
 import sqlalchemy as sa
-from flask import request, url_for
+from flask import request
 
 from app import db, queries
 from app.api import bp
@@ -23,8 +23,11 @@ def registrations():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
-    first_date = request.args.get('first_date', default=datetime.date.today() - datetime.timedelta(days=7), type=to_date)
+    first_date = request.args.get('first_date', default=None, type=to_date)
     last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
+
+    # Rather than provide a default first_date to args.get, calculate it here based on last_date if not provided
+    first_date = last_date - datetime.timedelta(days=7) if not first_date else first_date
 
     query = queries.get_registrations_query(first_date, last_date, pat, tm)
 
@@ -39,10 +42,14 @@ def registrations():
 @bp.route('/movements')
 def movements():
     pat, tm = get_filters(request.args)
-    first_date = request.args.get('first_date', datetime.date.today() - datetime.timedelta(days=7), type=to_date)
-    last_date = request.args.get('last_date', datetime.date.today(), type=to_date)
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
+
+    first_date = request.args.get('first_date', default=None, type=to_date)
+    last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
+
+    # Rather than provide a default first_date to args.get, calculate it here based on last_date if not provided
+    first_date = last_date - datetime.timedelta(days=7) if not first_date else first_date
 
     query = queries.get_movements_query(first_date, last_date, pat, tm)
 
@@ -58,11 +65,14 @@ def movements():
 def lapses():
     pat, tm = get_filters(request.args)
 
-    first_date = request.args.get('first_date', default=datetime.date.today() - datetime.timedelta(days=7), type=to_date)
-    last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
-
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
+
+    first_date = request.args.get('first_date', default=None, type=to_date)
+    last_date = request.args.get('last_date', default=datetime.date.today(), type=to_date)
+
+    # Rather than provide a default first_date to args.get, calculate it here based on last_date if not provided
+    first_date = last_date - datetime.timedelta(days=7) if not first_date else first_date
 
     query = queries.get_lapses_query(first_date, last_date, pat, tm)
 
@@ -107,3 +117,11 @@ def firms():
     }
 
     return Firm.to_collection_dict(query, page, per_page, 'api.firms', **endpoint_kwargs)
+
+@bp.route('/oldest-date')
+def oldest_date():
+    """Returns the oldest date in the database."""
+    oldest = db.session.execute(sa.select(sa.func.min(Attorney.valid_from))).scalar_one_or_none()
+    if oldest:
+        return {"oldest_date": oldest.isoformat()}
+    return {"oldest_date": datetime.date.today().isoformat()}
