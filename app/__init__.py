@@ -53,7 +53,8 @@ def create_app(config_class=Config):
         app.logger.addHandler(file_handler)
 
         app.logger.setLevel(logging.INFO)
-        app.logger.info('ttipabot-web startup')
+        # Skip startup log for CLI commands to avoid cluttering output
+        # The web server will log its own startup when it starts
 
 
     return app
