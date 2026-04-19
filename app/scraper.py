@@ -12,7 +12,12 @@ from flask import current_app
 from requests.adapters import HTTPAdapter, Retry
 
 from app import db, temporal_db
-from app.models import Attorney, Firm
+from app.data_migrator import (
+    link_attorneys_to_consolidated_firms,
+    link_incorporated_firms_to_consolidated,
+    update_attorney_firm_links,
+)
+from app.models import Attorney, IncorporatedFirm
 
 
 def scrape_register() -> None:
@@ -22,13 +27,26 @@ def scrape_register() -> None:
     file_path = scrapes_dir / f"{today}.json"
 
     if not json_dump_register(file_path):
-        current_app.logger.warning("Already scraped the register today. Reattempting a DB update.")
+        current_app.logger.warning(
+            "Already scraped the register today. Reattempting a DB update."
+        )
 
     data = get_register_data(file_path)
     attorneys, firms = separate_data(data)
     attorneys, firms = convert_to_models(attorneys, firms)
-    temporal_db.temporal_write(Attorney, attorneys, datetime.date.today())
-    merge_write(firms)
+    new_attorney_ids, changed_attorney_ids = temporal_db.temporal_write_with_ids(
+        Attorney, attorneys, datetime.date.today()
+    )
+    new_firm_ids, changed_firm_ids = merge_write_with_ids(firms)
+
+    if new_attorney_ids or changed_attorney_ids:
+        all_attorney_ids = new_attorney_ids + changed_attorney_ids
+        link_attorneys_to_consolidated_firms(all_attorney_ids)
+        update_attorney_firm_links()
+
+    if new_firm_ids or changed_firm_ids:
+        all_firm_ids = new_firm_ids + changed_firm_ids
+        link_incorporated_firms_to_consolidated(all_firm_ids)
 
     current_app.logger.info("Updated DB with changes from scraped data.")
     cleanup_older_jsons(file_path)
@@ -121,7 +139,7 @@ def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
         else []
     )
     firm_models = (
-        [Firm(**row) for row in df_firms.to_dict(orient="records")]
+        [IncorporatedFirm(**row) for row in df_firms.to_dict(orient="records")]
         if not df_firms.empty
         else []
     )
@@ -139,15 +157,15 @@ def ttipab_request(count: int, timeout: int = 30, max_retries: int = 3):
     page_size = count
     variant = "%7B2FCA44D4-EE00-43EC-BBBF-858C31387413%7D"
     url = f"{endpoint}?s={scope}&itemid={itemid}&sig={sig}&e={offset}&p={page_size}&v={variant}"
-    
+
     session = requests.Session()
     retry = Retry(
         total=max_retries,
         backoff_factor=0.5,  # Will sleep for [0.5, 1, 2] seconds between retries
-        status_forcelist=[500, 502, 503, 504]  # Retry on these HTTP status codes
+        status_forcelist=[500, 502, 503, 504],  # Retry on these HTTP status codes
     )
-    session.mount('https://', HTTPAdapter(max_retries=retry))
-    
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+
     return session.get(url, timeout=timeout)
 
 
@@ -169,15 +187,17 @@ def json_dump_register(file_path: Path) -> bool:
     try:
         # Initial ping to get count
         initial_response = ttipab_request(1)
-        initial_response.raise_for_status() # Raise HTTPError for bad status codes
+        initial_response.raise_for_status()  # Raise HTTPError for bad status codes
         results_count = initial_response.json().get("Count")
         if results_count is None or results_count == 0:
             raise ValueError("API returned an invalid count")
-        
+
         full_response = ttipab_request(results_count)
-        full_response.raise_for_status() # Raise HTTPError for bad status codes 
+        full_response.raise_for_status()  # Raise HTTPError for bad status codes
         raw_JSON = full_response.text
-        current_app.logger.info(f"Successfully scraped {results_count} results from the register.")
+        current_app.logger.info(
+            f"Successfully scraped {results_count} results from the register."
+        )
         # Save to file for future use
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(raw_JSON)
@@ -185,18 +205,19 @@ def json_dump_register(file_path: Path) -> bool:
 
     except requests.HTTPError as http_err:
         current_app.logger.error(
-            f"HTTP error occurred while scraping register: {http_err}", exc_info=http_err
+            f"HTTP error occurred while scraping register: {http_err}",
+            exc_info=http_err,
         )
         raise http_err
 
     except requests.RequestException as req_err:
-       current_app.logger.error(
+        current_app.logger.error(
             "Network error while scraping register",
             extra={"url": req_err.request.url if req_err.request else None},
-            exc_info=req_err
+            exc_info=req_err,
         )
-       raise req_err 
-    
+        raise req_err
+
     except Exception as ex:
         current_app.logger.error(
             "Failed to scrape register, could be a server-side problem.", exc_info=ex
@@ -227,13 +248,15 @@ def extract_html_data(data: list[dict]) -> list[dict]:
     return data
 
 
-def merge_write(firms: list[Firm]) -> None:
+def merge_write(firms: list[IncorporatedFirm]) -> None:
     """Merges non-temporal scraped data into the database."""
 
     # Need to adjust how firms data is handled if adding non-patent attorney firms
     for firm in firms:
         existing_firm = db.session.execute(
-            sa.select(Firm).where(Firm.external_id == firm.external_id)
+            sa.select(IncorporatedFirm).where(
+                IncorporatedFirm.external_id == firm.external_id
+            )
         ).scalar_one_or_none()
 
         # Comparison relies on appropriate __eq__ method being defined in model
@@ -245,6 +268,35 @@ def merge_write(firms: list[Firm]) -> None:
             # Insert new firm
             db.session.add(firm)
     db.session.commit()
+
+
+def merge_write_with_ids(firms: list[IncorporatedFirm]) -> tuple:
+    """
+    Merges non-temporal scraped data into the database.
+    Returns tuple of (new_ids, changed_ids).
+    """
+    new_ids = []
+    changed_ids = []
+
+    for firm in firms:
+        existing_firm = db.session.execute(
+            sa.select(IncorporatedFirm).where(
+                IncorporatedFirm.external_id == firm.external_id
+            )
+        ).scalar_one_or_none()
+
+        if existing_firm and existing_firm != firm:
+            firm.id = existing_firm.id
+            db.session.merge(firm)
+            db.session.flush()
+            changed_ids.append(existing_firm.id)
+        elif not existing_firm:
+            db.session.add(firm)
+            db.session.flush()
+            new_ids.append(firm.id)
+    
+    db.session.commit()
+    return (new_ids, changed_ids)
 
 
 def cleanup_older_jsons(keep_file: Path):

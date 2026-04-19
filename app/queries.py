@@ -4,7 +4,7 @@ import pandas as pd
 import sqlalchemy as sa
 
 from app import db, temporal_db
-from app.models import Attorney, Firm
+from app.models import Attorney, IncorporatedFirm, ConsolidatedFirm
 from app.temporal_db import temporal_query
 
 
@@ -158,6 +158,7 @@ def get_movements_query(first_date, last_date, pat=False, tm=False):
         )
         .join(last_subq, first_subq.c.external_id == last_subq.c.external_id)
         .where(first_subq.c.firm != last_subq.c.firm)
+        .order_by(last_subq.c.valid_from.asc())
     )
 
     # Apply filters if specified
@@ -169,31 +170,33 @@ def get_movements_query(first_date, last_date, pat=False, tm=False):
     return query
 
 
-def get_firms_query(date, order_by_param="+name", pat=False, tm=False):
+def get_firms_query(date, order_by_param="-attorney_count"):
     """
-    Returns a query for firms, with filtering and ordering options.
+    Returns a query for consolidated firms, ordered by attorney count.
     """
-    query = sa.select(Firm)
-
-    filters = []
-    if pat:
-        filters.append(Firm.patents)
-    if tm:
-        filters.append(Firm.trademarks)
-    if filters:
-        query = query.where(*filters)
-
-    if order_by_param:
-        order_by_field = order_by_param.lstrip(" +-")
-        direction = sa.desc if order_by_param.startswith("-") else sa.asc
-
-        order_map = {
-            "name": Firm.name,
-            "attorney_count": sa.func.char_length(Firm.name),
-        }
-
-        order_column = order_map.get(order_by_field)
-        if order_column is not None:
-            query = query.order_by(direction(order_column))
+    # Get attorney counts per consolidated firm as of the given date
+    filters = [
+        Attorney.valid_from <= date,
+        sa.or_(Attorney.valid_to.is_(None), Attorney.valid_to >= date),
+        Attorney.consolidated_firm_id.isnot(None),
+    ]
+    
+    count_subquery = (
+        sa.select(
+            Attorney.consolidated_firm_id.label('firm_id'),
+            sa.func.count(Attorney.id).label('attorney_count')
+        )
+        .where(sa.and_(*filters))
+        .group_by(Attorney.consolidated_firm_id)
+    ).subquery()
+    
+    # Join with consolidated firms and order by attorney count
+    direction = sa.desc if order_by_param.startswith("-") else sa.asc
+    
+    query = (
+        sa.select(ConsolidatedFirm, sa.func.coalesce(count_subquery.c.attorney_count, 0).label('attorney_count'))
+        .outerjoin(count_subquery, ConsolidatedFirm.id == count_subquery.c.firm_id)
+        .order_by(direction(sa.func.coalesce(count_subquery.c.attorney_count, 0)))
+    )
 
     return query

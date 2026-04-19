@@ -86,6 +86,9 @@ function getData() {
     case "lapses":
       data_url = `/api/lapses?last_date=${selectedDate}`;
       break;
+    case "firms":
+      data_url = `/api/firms?orderBy=-attorney_count&date=${selectedDate}`;
+      break;
     default:
       data_url = `/api/registrations?filter=pat&last_date=${selectedDate}`;
   }
@@ -128,16 +131,21 @@ function startChant(data) {
           break;
         case "movements":
           lines.push(
-            attorneys[i].name +
+            attorneys[i].new_name +
               " shifts allegiance from " +
-              attorneys[i].previous_firm +
+              attorneys[i].old_firm +
               " to " +
-              attorneys[i].firm +
+              attorneys[i].new_firm +
               ".",
           );
           break;
         case "lapses":
           lines.push("The desert has taken " + attorneys[i].name + ".");
+          break;
+        case "firms":
+          lines.push(
+            attorneys[i].name + " commands " + attorneys[i].attorney_count + " attorneys.",
+          );
           break;
         default:
           lines.push(

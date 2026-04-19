@@ -3,10 +3,11 @@ import json
 from pathlib import Path
 
 import click
+import sqlalchemy as sa
 from flask import Blueprint
 
 from app import data_migrator, db, queries, scraper
-from app.models import Attorney, Firm
+from app.models import Attorney, IncorporatedFirm, ConsolidatedFirm
 
 bp = Blueprint("cli", __name__, cli_group=None)
 
@@ -246,9 +247,67 @@ def names(date, limit, pat, tm):
 
 
 @ttipabot.command()
+@click.option(
+    "--limit", type=int, default=10, help="Number of firms to rank (default: 10)."
+)
 @pat_option
 @tm_option
-def firms(pat, tm):
-    """Placeholder for firms command."""
-    click.echo("Firms command not implemented yet.")
-    pass
+def firms(limit, pat, tm):
+    """Ranks firms by number of related attorneys."""
+    today = datetime.date.today()
+    
+    # Get current attorneys (valid as of today) with their consolidated firm
+    filters = [
+        Attorney.valid_from <= today,
+        sa.or_(Attorney.valid_to.is_(None), Attorney.valid_to >= today),
+    ]
+    if pat:
+        filters.append(Attorney.patents == True)
+    if tm:
+        filters.append(Attorney.trademarks == True)
+    
+    attorneys_query = sa.select(
+        Attorney.consolidated_firm_id,
+        sa.func.count(Attorney.id).label('count')
+    ).where(
+        sa.and_(*filters)
+    ).group_by(Attorney.consolidated_firm_id)
+    
+    firm_counts = db.session.execute(attorneys_query).all()
+
+    # Get firm details
+    firms_query = sa.select(ConsolidatedFirm)
+    all_firms = db.session.execute(firms_query).scalars().all()
+    firm_names = {f.id: f.name for f in all_firms}
+
+    # Build results
+    results = []
+    for firm_id, count in firm_counts:
+        if firm_id and firm_id in firm_names:
+            results.append((firm_names[firm_id], count))
+
+    # Sort by count descending
+    results.sort(key=lambda x: -x[1])
+
+    headers = ["Rank", "Firm", "Attorney Count"]
+    rows = [[i + 1, name, count] for i, (name, count) in enumerate(results[:limit])]
+    print_table(headers, rows)
+
+
+@ttipabot.command()
+def populate_firm_records():
+    """Populates consolidated_firms table and matches attorneys and incorporated firms to it."""
+    click.echo("Populating consolidated firm records...")
+    click.echo("This process:")
+    click.echo("1. Clears and repopulates the consolidated_firms table")
+    click.echo("2. Deduplicates firm names from attorneys using normalized matching")
+    click.echo("3. Matches attorneys to consolidated_firms (sets consolidated_firm_id)")
+    click.echo("4. Matches consolidated_firms to incorporated_firms (sets incorporated_firm.consolidated_firm_id)")
+    click.echo("")
+
+    try:
+        data_migrator.populate_firm_records()
+        click.echo("\nFirm record population completed successfully!")
+    except Exception as e:
+        click.echo(f"\nAn error occurred during firm record population: {e}")
+        raise
