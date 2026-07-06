@@ -1,97 +1,11 @@
 import datetime
 import re
-from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import sqlalchemy as sa
 import Levenshtein
 
 from app import db, temporal_db
 from app.models import Attorney, IncorporatedFirm, ConsolidatedFirm
-
-
-def parse_date_from_filename(filename: str) -> datetime.date:
-    """Extracts date from filename, expects format YYYY-MM-DD.csv"""
-    stem = Path(filename).stem
-    return datetime.datetime.strptime(stem, "%Y-%m-%d").date()
-
-
-def normalize_external_id(row):
-    ext_id = row.get("external_id")
-    if not ext_id:
-        current_query = temporal_db.temporal_query(
-            model=Attorney,
-            as_of_date=datetime.date.today(),
-            criterion=[Attorney.name == row.get("name")],
-        )
-        current_attorney = db.session.execute(current_query).scalar()
-        if current_attorney:
-            return current_attorney.external_id
-
-    return str(row.get("name")).strip().lower()[:36]
-
-
-def migrate_csvs(csv_dir: Path) -> None:
-    """Imports CSV files into the DB using pandas for efficient processing."""
-    if not csv_dir.exists():
-        raise FileNotFoundError("CSV directory does not exist.")
-
-    csv_files = sorted(
-        csv_dir.glob("*.csv"), key=lambda f: parse_date_from_filename(f.name)
-    )
-
-    for csv_file in csv_files:
-        print(f"Migrating {csv_file.name}")
-        attorneys = csv_to_attorneys(csv_file)
-        temporal_db.temporal_write(
-            Attorney, attorneys, parse_date_from_filename(csv_file.name)
-        )
-
-
-def csv_to_attorneys(csv_file: Path) -> list[Attorney]:
-    csv_date = parse_date_from_filename(csv_file.name)
-    df = pd.read_csv(csv_file)
-
-    # Map DataFrame columns to Attorney fields
-    column_map = {
-        "Name": "name",
-        "Phone": "phone",
-        "Email": "email",
-        "Firm": "firm",
-        "Address": "address",
-    }
-    df = df.rename(columns=column_map)
-
-    # Normalize external_id
-    df["external_id"] = None
-    df["external_id"] = df.apply(normalize_external_id, axis=1)
-
-    # Prepare boolean fields
-    df["patents"] = df.get("Registered as", "").apply(lambda x: "Patents" in str(x))
-    df["trademarks"] = df.get("Registered as", "").apply(
-        lambda x: "Trade marks" in str(x)
-    )
-    df.drop(columns=["Registered as"], inplace=True)
-
-    # Replace NaN with None
-    df.replace({np.nan: None}, inplace=True)
-
-    # Add valid_from
-    df["valid_from"] = csv_date
-
-    return [Attorney(**row) for row in df.to_dict(orient="records")]
-
-
-def delete_new_scrapes():
-    """Deletes all attorneys with a valid_from date of today or later.
-    Intended for use only during migration, when a new scrape needs rewriting to
-    properly connect it to the historical data."""
-    delete_query = sa.delete(Attorney).where(
-        Attorney.valid_from >= datetime.date.today()
-    )
-    db.session.execute(delete_query)
-    db.session.commit()
 
 
 def patch_external_ids(replace_id: str, new_id: str):
@@ -348,36 +262,25 @@ def populate_firm_records():
 
     print("\nStep 3: Deduplicating and creating consolidated_firm records...")
 
-    # Build a DataFrame of firm names with frequencies
-    firm_data = []
+    # Group each original firm spelling by its normalised name, then for each
+    # group pick the display name derived from the highest-frequency spelling
+    # (tie-break: lexicographically smallest normalised form, then first-seen).
+    # This replaces the previous pandas groupby(...).sort_values(...) logic.
+    groups: dict[str, list[dict]] = {}
     for firm_name in unique_firms:
         normalized = normalize_firm_name(firm_name)
         if not normalized:
             continue
-        freq = firm_frequency.get(firm_name, 1)
-        # Create a clean display name by stripping suffixes from original
-        display_name = clean_display_name(firm_name)
-        firm_data.append({
-            'original': firm_name,
-            'normalized': normalized,
-            'display': display_name,
-            'frequency': freq,
-            'clean': normalized,  # Use normalized (uppercase, aliases applied) as clean name
+        groups.setdefault(normalized, []).append({
+            "original": firm_name,
+            "frequency": firm_frequency.get(firm_name, 1),
+            "clean": normalized,
         })
 
-    df = pd.DataFrame(firm_data)
-
-    # Group by normalized name and find the best display name:
-    # Prefer the shortest clean name among high-frequency options
-    def select_best_display(group):
-        # Sort by frequency desc, then by length asc (shorter = cleaner)
-        sorted_group = group.sort_values(['frequency', 'clean'], ascending=[False, True])
-        # Get the original name that had the shortest clean form
-        original_name = sorted_group.iloc[0]['original']
-        # Use clean_display_name to convert to proper title case with initials preserved
-        return clean_display_name(original_name)
-
-    consolidated = df.groupby('normalized').apply(select_best_display, include_groups=False).to_dict()
+    consolidated = {}
+    for normalized, entries in groups.items():
+        best = min(entries, key=lambda e: (-e["frequency"], e["clean"]))
+        consolidated[normalized] = clean_display_name(best["original"])
 
     # Create consolidated firm records
     consolidated_firms = {}

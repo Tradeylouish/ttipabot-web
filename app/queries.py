@@ -1,6 +1,6 @@
+import csv
 import datetime
 
-import pandas as pd
 import sqlalchemy as sa
 
 from app import db, temporal_db
@@ -18,52 +18,54 @@ def print_head():
 
 def dump_attorneys_to_csv(csv_path: str):
     """Dump the entire attorneys table to a CSV file with headers."""
-    # Query all attorneys
     attorneys = db.session.execute(sa.select(Attorney)).scalars().all()
-    # Convert to list of dicts
-    rows = [
-        {
-            "id": a.id,
-            "external_id": a.external_id,
-            "name": a.name,
-            "phone": a.phone,
-            "email": a.email,
-            "firm": a.firm,
-            "address": a.address,
-            "patents": a.patents,
-            "trademarks": a.trademarks,
-            "valid_from": a.valid_from,
-            "valid_to": a.valid_to,
-        }
-        for a in attorneys
+    fieldnames = [
+        "id", "external_id", "name", "phone", "email", "firm", "address",
+        "additional_information", "patents", "trademarks",
+        "valid_from", "valid_to",
     ]
-    # Write to CSV
-    df = pd.DataFrame(rows)
-    df.to_csv(csv_path, index=False)
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for a in attorneys:
+            writer.writerow({
+                "id": a.id,
+                "external_id": a.external_id,
+                "name": a.name,
+                "phone": a.phone,
+                "email": a.email,
+                "firm": a.firm,
+                "address": a.address,
+                "additional_information": a.additional_information,
+                "patents": a.patents,
+                "trademarks": a.trademarks,
+                "valid_from": a.valid_from,
+                "valid_to": a.valid_to,
+            })
 
 
 def dump_firms_to_csv(csv_path: str):
     """Dump the entire firms table to a CSV file with headers."""
-    # Query all firms
-    firms = db.session.execute(sa.select(Firm)).scalars().all()
-    # Convert to list of dicts
-    rows = [
-        {
-            "id": f.id,
-            "external_id": f.external_id,
-            "name": f.name,
-            "phone": f.phone,
-            "email": f.email,
-            "website": f.website,
-            "address": f.address,
-            "patents": f.patents,
-            "trademarks": f.trademarks,
-        }
-        for f in firms
+    firms = db.session.execute(sa.select(IncorporatedFirm)).scalars().all()
+    fieldnames = [
+        "id", "external_id", "name", "phone", "email", "website",
+        "address", "patents", "trademarks",
     ]
-    # Write to CSV
-    df = pd.DataFrame(rows)
-    df.to_csv(csv_path, index=False)
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for firm in firms:
+            writer.writerow({
+                "id": firm.id,
+                "external_id": firm.external_id,
+                "name": firm.name,
+                "phone": firm.phone,
+                "email": firm.email,
+                "website": firm.website,
+                "address": firm.address,
+                "patents": firm.patents,
+                "trademarks": firm.trademarks,
+            })
 
 
 def get_registrations_query(first_date, last_date, pat=False, tm=False):

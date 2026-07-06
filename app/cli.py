@@ -104,24 +104,6 @@ def scrape():
 
 
 @ttipabot.command()
-def migrate_csvs():
-    """Migrate historical CSV files to the database. Should be done after a single scrape to match up external IDs."""
-    csv_directory = Path("scrapes")
-    click.echo("Migration CSV data from scrapes directory")
-
-    try:
-        data_migrator.migrate_csvs(csv_directory)
-    except FileNotFoundError as e:
-        click.echo(f"Error: {e}")
-    except Exception as e:
-        click.echo(f"An unexpected error occurred: {e}")
-
-    # Delete the newest scrape and readd it to complete migration
-    data_migrator.delete_new_scrapes()
-    scraper.scrape_register()
-
-
-@ttipabot.command()
 @click.argument("replace_id", required=False)
 @click.argument("new_id", required=False)
 @click.option("--file", type=click.Path(exists=True), help="JSON file with patches.")
@@ -311,3 +293,105 @@ def populate_firm_records():
     except Exception as e:
         click.echo(f"\nAn error occurred during firm record population: {e}")
         raise
+
+
+@ttipabot.command()
+@click.option(
+    "--date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    required=True,
+    help="The valid_to date of the false lapses to recover (YYYY-MM-DD).",
+)
+def recover_false_lapses(date):
+    """Recovers attorneys incorrectly lapsed on a given date.
+
+    For every attorney row whose valid_to equals --date, looks up the
+    attorney's current record on the live register:
+      - if the live record is unchanged from the lapsed row, the false lapse
+        is reopened (valid_to set back to NULL) for a clean continuous history;
+      - if the live record differs, a new row is inserted with
+        valid_from = --date and valid_to = NULL, on the assumption that the
+        change occurred on that date (the old row keeps valid_to = --date).
+      - if the attorney is no longer on the live register at all, the lapse
+        is left as-is (treated as a genuine lapse).
+    """
+    from app import temporal_db
+    from app.models import Attorney
+
+    target_date = date.date()
+
+    # Ensure we have a fresh scrape to compare against, then build models.
+    scrapes_dir = Path("scrapes")
+    scrapes_dir.mkdir(exist_ok=True)
+    today = datetime.date.today().isoformat()
+    file_path = scrapes_dir / f"{today}.json"
+    if not file_path.exists():
+        scraper.json_dump_register(file_path)
+    data = scraper.get_register_data(file_path)
+    attorneys_raw, _ = scraper.separate_data(data)
+    live_models, _ = scraper.convert_to_models(attorneys_raw, [])
+    live_by_id = {a.external_id: a for a in live_models}
+
+    lapsed_rows = (
+        db.session.execute(
+            sa.select(Attorney).where(Attorney.valid_to == target_date)
+        )
+        .scalars()
+        .all()
+    )
+    click.echo(
+        f"Found {len(lapsed_rows)} attorney row(s) lapsed on "
+        f"{target_date.isoformat()}."
+    )
+
+    reopened = 0
+    inserted = 0
+    kept = 0
+    new_ids = []
+    for row in lapsed_rows:
+        live = live_by_id.get(row.external_id)
+        if live is None:
+            click.echo(
+                f"  KEEP (not on live register): {row.name} "
+                f"[{row.external_id}]"
+            )
+            kept += 1
+            continue
+        # Reopen only if the lapsed row matches the live record on business fields.
+        if temporal_db.records_unchanged(row, live):
+            row.valid_to = None
+            reopened += 1
+            click.echo(f"  REOPEN (unchanged):          {row.name}")
+        else:
+            # Insert a new row dated target_date with the live data.
+            new = Attorney(
+                external_id=live.external_id,
+                name=live.name,
+                phone=live.phone,
+                email=live.email,
+                firm=live.firm,
+                address=live.address,
+                additional_information=live.additional_information,
+                patents=live.patents,
+                trademarks=live.trademarks,
+                valid_from=target_date,
+                valid_to=None,
+            )
+            db.session.add(new)
+            db.session.flush()
+            new_ids.append(new.id)
+            inserted += 1
+            click.echo(f"  INSERT changed row ({target_date.isoformat()}): {row.name}")
+
+    db.session.commit()
+
+    # Link any newly inserted attorneys to consolidated firms.
+    if new_ids:
+        data_migrator.link_attorneys_to_consolidated_firms(new_ids)
+        data_migrator.update_attorney_firm_links()
+
+    click.echo("")
+    click.echo(
+        f"Done. Reopened {reopened}, inserted {inserted}, kept {kept} "
+        f"(genuine lapse)."
+    )

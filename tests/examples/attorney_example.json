@@ -3,7 +3,7 @@
   "QueryTime": 1,
   "Signature": "als",
   "Index": "sitecore_sxa_web_index",
-  "Count": 3,
+  "Count": 4,
   "Results": [
     {
       "Id": "test-attorney-1",
@@ -28,6 +28,14 @@
       "Url": "/test-url-attorney3",
       "Name": null,
       "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>Bob Wilson</h4>\r\n      </div>\r\n      <div class=\"contact block\">\r\n        \r\n        \r\n        \r\n          <div class=\"block-2\">\r\n            <span> Email </span>\r\n            <span>\r\n              <a href=\"mailto:b.wilson@trademarkfirm.co.nz\" class=\"btn btn-secondary btn-textOnly\">b.wilson@trademarkfirm.co.nz</a>\r\n            </span>\r\n          </div>\r\n        \r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Firm </span><span> Trademark Specialists NZ </span>\r\n        </div>\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Address </span><span>\r\n            Level 2, 789 Queen Street, Auckland 1010 New Zealand\r\n          </span>\r\n        </div>\r\n      \r\n\r\n       \r\n        <div class=\"block\">\r\n          <span> Registered as</span>\r\n          <div class=\"tags\">       \r\n          \r\n              <span class=\"ipr-tag ipr-TM\">Trade marks</span>\r\n            \r\n          </div>\r\n        </div>\r\n      \r\n    </div>\r\n  "
+    },
+    {
+      "Id": "test-attorney-4",
+      "Language": "en",
+      "Path": "/test/path/attorney4",
+      "Url": "/test-url-attorney4",
+      "Name": null,
+      "Html": "\r\n\r\n\r\n\r\n  \r\n\r\n    <div class=\"list-item attorney\">\r\n      <div class=\"block\">\r\n        <span> Attorney </span>\r\n        <h4>John Test</h4>\r\n      </div>\r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Firm </span><span> Testing IP </span>\r\n        </div>\r\n      \r\n\r\n      \r\n        <div class=\"block\">\r\n          <span> Additional Information</span><span>Has not currently met conditions required to return to the register</span>\r\n        </div>\r\n      \r\n    </div>\r\n  "
     }
   ]
 }

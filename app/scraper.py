@@ -3,8 +3,6 @@ import json
 import os
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import requests
 import sqlalchemy as sa
 from bs4 import BeautifulSoup
@@ -31,119 +29,177 @@ def scrape_register() -> None:
             "Already scraped the register today. Reattempting a DB update."
         )
 
-    data = get_register_data(file_path)
-    attorneys, firms = separate_data(data)
-    attorneys, firms = convert_to_models(attorneys, firms)
-    new_attorney_ids, changed_attorney_ids = temporal_db.temporal_write_with_ids(
-        Attorney, attorneys, datetime.date.today()
-    )
-    new_firm_ids, changed_firm_ids = merge_write_with_ids(firms)
+    try:
+        data = get_register_data(file_path)
+        attorneys, firms = separate_data(data)
+        attorneys, firms = convert_to_models(attorneys, firms)
+        new_attorney_ids, changed_attorney_ids = temporal_db.temporal_write_with_ids(
+            Attorney, attorneys, datetime.date.today()
+        )
+        new_firm_ids, changed_firm_ids = merge_write_with_ids(firms)
 
-    if new_attorney_ids or changed_attorney_ids:
-        all_attorney_ids = new_attorney_ids + changed_attorney_ids
-        link_attorneys_to_consolidated_firms(all_attorney_ids)
-        update_attorney_firm_links()
+        if new_attorney_ids or changed_attorney_ids:
+            all_attorney_ids = new_attorney_ids + changed_attorney_ids
+            link_attorneys_to_consolidated_firms(all_attorney_ids)
+            update_attorney_firm_links()
 
-    if new_firm_ids or changed_firm_ids:
-        all_firm_ids = new_firm_ids + changed_firm_ids
-        link_incorporated_firms_to_consolidated(all_firm_ids)
+        if new_firm_ids or changed_firm_ids:
+            all_firm_ids = new_firm_ids + changed_firm_ids
+            link_incorporated_firms_to_consolidated(all_firm_ids)
 
-    current_app.logger.info("Updated DB with changes from scraped data.")
+        current_app.logger.info("Updated DB with changes from scraped data.")
+    except Exception:
+        # The scrape itself succeeded (file is written), but the DB update
+        # failed. Log with a traceback so it shows up in the rotating file log
+        # instead of only going to stderr / cron mail, which previously made
+        # nightly write failures look like successful no-op scrapes.
+        current_app.logger.exception(
+            "Failed to update DB from scraped data. The scrape JSON at %s "
+            "was written but no DB changes were committed.",
+            file_path,
+        )
+        raise
     cleanup_older_jsons(file_path)
 
 
 def separate_data(data: list[dict]) -> tuple:
-    """Separate data into attorneys and firms."""
+    """Separate data into attorneys and firms.
+
+    Records that contain neither an "Attorney" nor a "Firm" label (i.e. the
+    name block could not be parsed) are logged with their external_id so a
+    silent mass-drop is visible in the logs, rather than those records being
+    lapsed by ``temporal_write_with_ids`` without any trace of why.
+    """
     attorneys = []
     firms = []
+    dropped = []
     for record in data:
         if "Attorney" in record:
             attorneys.append(record)
         elif "Firm" in record:
             firms.append(record)
+        else:
+            dropped.append(record.get("Id"))
+    if dropped:
+        current_app.logger.warning(
+            "separate_data: dropped %d record(s) with neither Attorney nor Firm "
+            "label (will be treated as lapsed by temporal_write): %s",
+            len(dropped),
+            dropped,
+        )
     return attorneys, firms
 
 
+# Register labels we know how to persist on each model. Anything outside
+# this set (plus the metadata fields below) is ignored with a warning so a
+# new register field can never break the nightly write.
+_ATTORNEY_KNOWN_FIELDS = {
+    "Id", "Attorney", "Phone", "Email", "Firm", "Address",
+    "Additional Information",
+}
+_FIRM_KNOWN_FIELDS = {
+    "Id", "Firm", "Phone", "Email", "Company Directors", "Website", "Address",
+}
+# Register-only / metadata keys that are never persisted on a model.
+_META_FIELDS = {"Registered as", "Language", "Path", "Url", "Name"}
+
+
+def _registered_booleans(registered_as: str | None) -> tuple[bool, bool]:
+    """Derive (patents, trademarks) flags from the register's 'Registered as'
+    free-text field, e.g. 'Patents, Trade marks'."""
+    text = (registered_as or "").lower()
+    return "patent" in text, "trademark" in text or "trade mark" in text
+
+
+def _build_attorney(record: dict) -> Attorney:
+    patents, trademarks = _registered_booleans(record.get("Registered as"))
+    return Attorney(
+        external_id=record.get("Id") or None,
+        name=record.get("Attorney") or None,
+        phone=record.get("Phone") or None,
+        email=record.get("Email") or None,
+        firm=record.get("Firm") or None,
+        address=record.get("Address") or None,
+        additional_information=record.get("Additional Information") or None,
+        patents=patents,
+        trademarks=trademarks,
+        valid_from=datetime.date.today(),
+        valid_to=None,
+    )
+
+
+def _build_firm(record: dict) -> IncorporatedFirm:
+    patents, trademarks = _registered_booleans(record.get("Registered as"))
+    return IncorporatedFirm(
+        external_id=record.get("Id") or None,
+        name=record.get("Firm") or None,
+        phone=record.get("Phone") or None,
+        email=record.get("Email") or None,
+        directors=record.get("Company Directors") or None,
+        website=record.get("Website") or None,
+        address=record.get("Address") or None,
+        patents=patents,
+        trademarks=trademarks,
+    )
+
+
+def _records_to_models(
+    records: list[dict],
+    known_fields: set,
+    name_source: str,
+    build_fn,
+    label: str,
+) -> list:
+    """Map a list of parsed register records to ORM model instances.
+
+    Records with an empty/missing name are dropped (and logged by
+    ``external_id``); any register field not in ``known_fields`` (and not a
+    metadata field) is ignored with a single warning so the scrape is robust
+    to the register introducing new labels.
+    """
+    if not records:
+        return []
+
+    known = known_fields | _META_FIELDS
+    unknown = sorted({key for rec in records for key in rec} - known)
+    if unknown:
+        current_app.logger.warning(
+            "Ignoring unknown register field(s) for %s: %s. "
+            "These will not be persisted.",
+            label,
+            ", ".join(unknown),
+        )
+
+    models = []
+    for record in records:
+        name = record.get(name_source)
+        if not name:
+            current_app.logger.warning(
+                "Dropping %s record with empty name: %s",
+                label,
+                record.get("Id"),
+            )
+            continue
+        models.append(build_fn(record))
+    return models
+
+
 def convert_to_models(attorneys: list[dict], firms: list[dict]) -> tuple:
-    """Converts the data to models using pandas for efficient processing."""
+    """Convert parsed register records into ``Attorney`` / ``IncorporatedFirm``
+    model instances.
 
-    def process_dataframe(
-        data: list[dict], column_map: dict, add_temporal: bool = False
-    ) -> pd.DataFrame:
-        if not data:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(data)
-
-        # Rename columns
-        df = df.rename(columns=column_map)
-
-        # Replace empty strings with NaN in 'name' column so they can be dropped
-        df["name"] = df["name"].replace("", np.nan)
-
-        # Delete rows where name is not present
-        df.dropna(subset=["name"], inplace=True)
-
-        # Handle boolean fields from 'Registered as'
-        registered_col = df.get("Registered as", pd.Series("", index=df.index))
-        df["patents"] = (
-            registered_col.astype(str).str.lower().str.contains("patent", na=False)
-        )
-        df["trademarks"] = (
-            registered_col.astype(str)
-            .str.lower()
-            .str.contains("trademark|trade mark", na=False)
-        )
-
-        # Add temporal fields for attorneys
-        if add_temporal:
-            df["valid_from"] = datetime.date.today()
-            df["valid_to"] = None
-
-        # Clean up
-        df.replace({np.nan: None}, inplace=True)
-        columns_to_drop = ["Registered as", "Language", "Path", "Url", "Name"]
-        for column in columns_to_drop:
-            if column in df.columns:
-                df.drop(columns=[column], inplace=True)
-        return df
-
-    # Column mappings
-    attorney_column_map = {
-        "Id": "external_id",
-        "Attorney": "name",
-        "Phone": "phone",
-        "Email": "email",
-        "Firm": "firm",
-        "Address": "address",
-    }
-
-    firm_column_map = {
-        "Id": "external_id",
-        "Firm": "name",
-        "Phone": "phone",
-        "Email": "email",
-        "Company Directors": "directors",
-        "Website": "website",
-        "Address": "address",
-    }
-
-    # Process data
-    df_attorneys = process_dataframe(attorneys, attorney_column_map, add_temporal=True)
-    df_firms = process_dataframe(firms, firm_column_map, add_temporal=False)
-
-    # Convert to model objects
-    attorney_models = (
-        [Attorney(**row) for row in df_attorneys.to_dict(orient="records")]
-        if not df_attorneys.empty
-        else []
+    Robust to unknown register fields: only the attributes explicitly mapped
+    in ``_build_attorney`` / ``_build_firm`` (plus the derived boolean and
+    temporal columns) are passed to the constructor. Any other labels the
+    register starts emitting (e.g. a secretary-entered freeform field) are
+    dropped with a warning rather than crashing the scrape.
+    """
+    attorney_models = _records_to_models(
+        attorneys, _ATTORNEY_KNOWN_FIELDS, "Attorney", _build_attorney, "attorney",
     )
-    firm_models = (
-        [IncorporatedFirm(**row) for row in df_firms.to_dict(orient="records")]
-        if not df_firms.empty
-        else []
+    firm_models = _records_to_models(
+        firms, _FIRM_KNOWN_FIELDS, "Firm", _build_firm, "firm",
     )
-
     return attorney_models, firm_models
 
 
@@ -259,8 +315,8 @@ def merge_write(firms: list[IncorporatedFirm]) -> None:
             )
         ).scalar_one_or_none()
 
-        # Comparison relies on appropriate __eq__ method being defined in model
-        if existing_firm and existing_firm != firm:
+        # Only merge when business fields differ.
+        if existing_firm and not temporal_db.records_unchanged(existing_firm, firm):
             # Update existing firm
             firm.id = existing_firm.id
             db.session.merge(firm)
@@ -285,7 +341,7 @@ def merge_write_with_ids(firms: list[IncorporatedFirm]) -> tuple:
             )
         ).scalar_one_or_none()
 
-        if existing_firm and existing_firm != firm:
+        if existing_firm and not temporal_db.records_unchanged(existing_firm, firm):
             firm.id = existing_firm.id
             db.session.merge(firm)
             db.session.flush()

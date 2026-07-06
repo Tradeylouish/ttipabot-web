@@ -1,5 +1,5 @@
 import datetime
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Optional
 
 import sqlalchemy as sa
@@ -7,6 +7,7 @@ import sqlalchemy.orm as so
 from flask import url_for
 
 from app import db
+from app.temporal_db import temporal_query
 
 
 @dataclass
@@ -27,7 +28,7 @@ class Movement:
         }
 
 
-class PaginatedAPIMixin(object):
+class PaginatedAPIMixin:
     @staticmethod
     def to_collection_dict(query, page, per_page, endpoint, **kwargs):
         resources = db.paginate(query, page=page, per_page=per_page, error_out=False)
@@ -93,17 +94,17 @@ class Attorney(db.Model, PaginatedAPIMixin):
     consolidated_firm_id: so.Mapped[Optional[int]] = so.mapped_column(
         sa.ForeignKey("consolidated_firms.id"), index=True
     )
-    firm_record: so.Mapped[Optional["ConsolidatedFirm"]] = so.relationship(
+    firm_record: so.Mapped[Optional[ConsolidatedFirm]] = so.relationship(
         back_populates="attorneys"
     )
     address: so.Mapped[Optional[str]] = so.mapped_column(sa.String(128))
+    additional_information: so.Mapped[Optional[str]] = so.mapped_column(
+        sa.String(256)
+    )
     patents: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
     trademarks: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
     valid_from: so.Mapped[sa.Date] = so.mapped_column(sa.Date, index=True)
     valid_to: so.Mapped[Optional[sa.Date]] = so.mapped_column(sa.Date, index=True)
-
-    def name_length(self):
-        return len(self.name)
 
     def previous_firm(self):
         # Query for previous firm record
@@ -125,32 +126,18 @@ class Attorney(db.Model, PaginatedAPIMixin):
         return {
             "id": self.external_id,
             "name": self.name,
-            "name_length": self.name_length(),
+            "name_length": len(self.name),
             "phone": self.phone,
             "email": self.email,
             "firm": self.firm,
             "address": self.address,
+            "additional_information": self.additional_information,
             "patents": self.patents,
             "trademarks": self.trademarks,
         }
 
     def __repr__(self):
         return f"<Attorney {self.name}>"
-
-    def __eq__(self, other):
-        # For determining if two Attorney records from different dates are unchanged
-        if not isinstance(other, Attorney):
-            return NotImplemented
-        return (
-            self.external_id == other.external_id
-            and self.name == other.name
-            and (self.phone or None) == (other.phone or None)
-            and (self.email or None) == (other.email or None)
-            and (self.firm or None) == (other.firm or None)
-            and (self.address or None) == (other.address or None)
-            and bool(self.patents) == bool(other.patents)
-            and bool(self.trademarks) == bool(other.trademarks)
-        )
 
 
 class IncorporatedFirm(db.Model, PaginatedAPIMixin):
@@ -171,7 +158,7 @@ class IncorporatedFirm(db.Model, PaginatedAPIMixin):
     patents: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
     trademarks: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
 
-    consolidated_firm: so.Mapped[Optional["ConsolidatedFirm"]] = so.relationship(
+    consolidated_firm: so.Mapped[Optional[ConsolidatedFirm]] = so.relationship(
         back_populates="incorporated_firms"
     )
 
@@ -189,22 +176,6 @@ class IncorporatedFirm(db.Model, PaginatedAPIMixin):
 
     def __repr__(self):
         return f"<Incorporated Firm {self.name}>"
-
-    def __eq__(self, other):
-        # For determining if two Attorney records from different dates are unchanged
-        if not isinstance(other, IncorporatedFirm):
-            return NotImplemented
-        return (
-            self.external_id == other.external_id
-            and self.name == other.name
-            and (self.phone or None) == (other.phone or None)
-            and (self.email or None) == (other.email or None)
-            and (self.website or None) == (other.website or None)
-            and (self.directors or None) == (other.directors or None)
-            and (self.address or None) == (other.address or None)
-            and bool(self.patents) == bool(other.patents)
-            and bool(self.trademarks) == bool(other.trademarks)
-        )
 
 
 class ConsolidatedFirm(db.Model, PaginatedAPIMixin):
@@ -225,17 +196,15 @@ class ConsolidatedFirm(db.Model, PaginatedAPIMixin):
     def __repr__(self):
         return f"<Firm {self.name}>"
 
-    def attorney_count(self, as_of_date: datetime.date = None):
+    def attorney_count(self, as_of_date: datetime.date = None) -> int:
         """Returns the number of attorneys valid as of a given date."""
         if as_of_date is None:
             as_of_date = datetime.date.today()
-        
-        from app.temporal_db import temporal_query
-        
+
         query = temporal_query(
             Attorney,
             as_of_date,
-            criterion=[Attorney.consolidated_firm_id == self.id]
+            criterion=[Attorney.consolidated_firm_id == self.id],
+            columns=[sa.func.count(Attorney.id)],
         )
-        result = db.session.execute(query)
-        return len(result.scalars().all())
+        return db.session.execute(query).scalar()

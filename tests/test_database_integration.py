@@ -191,8 +191,8 @@ class TestModels:
             valid_from=datetime.date.today(),
         )
 
-        assert attorney1 == attorney2
-        assert attorney1 != attorney3
+        assert temporal_db.records_unchanged(attorney1, attorney2)
+        assert not temporal_db.records_unchanged(attorney1, attorney3)
 
     def test_firm_equality(self, app):
         """Test Firm model equality comparison."""
@@ -232,8 +232,8 @@ class TestModels:
             trademarks=True,
         )
 
-        assert firm1 == firm2
-        assert firm1 != firm3
+        assert temporal_db.records_unchanged(firm1, firm2)
+        assert not temporal_db.records_unchanged(firm1, firm3)
 
     def test_attorney_to_dict(self, app):
         """Test Attorney.to_dict() method."""
@@ -261,6 +261,7 @@ class TestModels:
             "email",
             "firm",
             "address",
+            "additional_information",
             "patents",
             "trademarks",
         }
