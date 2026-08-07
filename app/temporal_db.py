@@ -59,17 +59,7 @@ def temporal_write_with_ids(model, records: list, as_of_date) -> tuple:
       - For any currently valid record in the DB whose external_id is NOT in the incoming list,
         set its valid_to to as_of_date (mark as lapsed).
     
-    Safety guard: a single scrape should not be able to mass-lapse a large
-    fraction of the register. If the number of records to lapse exceeds
-    ``MASS_LAPSE_THRESHOLD`` (absolute) or ``MASS_LAPSE_FRACTION`` of the
-    currently-valid set, the lapse is aborted (those ``valid_to`` updates are
-    not applied) and an error is logged. The new/changed writes still proceed,
-    so a real registration/movement is never lost; only the destructive
-    "mark-missing-as-lapsed" step is skipped pending investigation.
     """
-    MASS_LAPSE_THRESHOLD = 5
-    MASS_LAPSE_FRACTION = 0.01
-
     # Deduplicate incoming records by external_id. The register has been known
     # to return duplicates; without this, both copies would match the same
     # existing row and each be inserted, producing two currently-valid rows
@@ -99,35 +89,13 @@ def temporal_write_with_ids(model, records: list, as_of_date) -> tuple:
     to_lapse = [e for e in current_valid if e.external_id not in incoming_ids]
 
     if to_lapse:
-        lapse_fraction = len(to_lapse) / max(len(current_valid), 1)
-        if (
-            len(to_lapse) > MASS_LAPSE_THRESHOLD
-            and lapse_fraction > MASS_LAPSE_FRACTION
-        ):
-            # Refuse to mass-lapse. This is the signature of a partial scrape /
-            # parse failure, not a real register event. Log loudly and skip the
-            # destructive step; new/changed writes below still proceed.
-            current_app.logger.error(
-                "temporal_write_with_ids: refusing to mass-lapse %d of %d "
-                "currently-valid %s records (%.1f%%) on %s. This looks like a "
-                "partial scrape or parse failure, not a real lapse. SKIPPING "
-                "the lapse step. Affected external_ids: %s",
-                len(to_lapse),
-                len(current_valid),
-                model.__tablename__,
-                lapse_fraction * 100,
-                as_of_date.isoformat(),
-                [e.external_id for e in to_lapse],
-            )
-            to_lapse = []
-        else:
-            current_app.logger.info(
-                "temporal_write_with_ids: lapping %d %s record(s) on %s: %s",
-                len(to_lapse),
-                model.__tablename__,
-                as_of_date.isoformat(),
-                [e.external_id for e in to_lapse],
-            )
+        current_app.logger.info(
+            "temporal_write_with_ids: lapping %d %s record(s) on %s: %s",
+            len(to_lapse),
+            model.__tablename__,
+            as_of_date.isoformat(),
+            [e.external_id for e in to_lapse],
+        )
 
     for existing in to_lapse:
         existing.valid_to = as_of_date

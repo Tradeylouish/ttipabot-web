@@ -1,6 +1,5 @@
 import datetime
 import json
-import os
 from pathlib import Path
 
 import requests
@@ -59,7 +58,6 @@ def scrape_register() -> None:
             file_path,
         )
         raise
-    cleanup_older_jsons(file_path)
 
 
 def separate_data(data: list[dict]) -> tuple:
@@ -353,17 +351,6 @@ def merge_write_with_ids(firms: list[IncorporatedFirm]) -> tuple:
     
     db.session.commit()
     return (new_ids, changed_ids)
-
-
-def cleanup_older_jsons(keep_file: Path):
-    """Delete *.json files in the scrapes directory except the one specified."""
-    scrapes_dir = Path("scrapes")
-    for fname in scrapes_dir.glob("*.json"):
-        if fname != keep_file:
-            try:
-                os.remove(fname)
-            except Exception as ex:
-                current_app.logger.warning(f"Could not delete {fname}: {ex}")
 
 
 def parse_html(html: str) -> dict:

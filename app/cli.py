@@ -1,12 +1,16 @@
 import datetime
 import json
 from pathlib import Path
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 import click
 import sqlalchemy as sa
 from flask import Blueprint
+from flask import current_app
 
-from app import data_migrator, db, queries, scraper
+from app import data_migrator, db, queries, scraper, history_reconstructor
 from app.models import Attorney, IncorporatedFirm, ConsolidatedFirm
 
 bp = Blueprint("cli", __name__, cli_group=None)
@@ -94,6 +98,60 @@ def ttipabot():
 @ttipabot.command()
 def test():
     click.echo("Hello world")
+
+
+@ttipabot.command()
+@click.option(
+    "--to",
+    "to_addr",
+    default=None,
+    help="Override recipient (default: ADMINS from config).",
+)
+def test_email(to_addr):
+    """Send a test email via SMTP to verify error-email config."""
+
+    cfg = current_app.config
+    host = cfg.get("MAIL_SERVER")
+    port = cfg.get("MAIL_PORT")
+    user = cfg.get("MAIL_USERNAME")
+    pw = cfg.get("MAIL_PASSWORD")
+    fr = cfg.get("MAIL_FROM")
+    admins = cfg.get("ADMINS")
+    recipients = [to_addr] if to_addr else admins
+
+    if not host or not user or not pw or not fr or not recipients:
+        click.echo(
+            "❌ Missing mail config — check MAIL_SERVER, MAIL_USERNAME, "
+            "MAIL_PASSWORD, MAIL_FROM, ADMINS in .env",
+            err=True,
+        )
+        return
+
+    click.echo(f"Server:   {host}:{port}")
+    click.echo(f"User:     {user}")
+    click.echo(f"From:     {fr}")
+    click.echo(f"To:       {', '.join(recipients)}")
+    click.echo()
+
+    msg = MIMEMultipart()
+    msg["From"] = fr
+    msg["To"] = ", ".join(recipients)
+    msg["Subject"] = "Test email — ttipabot-web error handler"
+    msg.attach(MIMEText("SMTP error emailing via Mailgun is working!", "plain"))
+
+    try:
+        with smtplib.SMTP(host, port, timeout=15) as s:
+            s.ehlo()
+            if cfg.get("MAIL_USE_TLS"):
+                s.starttls()
+                s.ehlo()
+            s.login(user, pw)
+            s.sendmail(fr, recipients, msg.as_string())
+        click.echo("✅ Test email sent!")
+    except smtplib.SMTPAuthenticationError as e:
+        click.echo(f"❌ Authentication failed: {e}", err=True)
+    except Exception as e:
+        click.echo(f"❌ Failed: {e}", err=True)
 
 
 @ttipabot.command()
@@ -237,7 +295,7 @@ def names(date, limit, pat, tm):
 def firms(limit, pat, tm):
     """Ranks firms by number of related attorneys."""
     today = datetime.date.today()
-    
+
     # Get current attorneys (valid as of today) with their consolidated firm
     filters = [
         Attorney.valid_from <= today,
@@ -247,14 +305,15 @@ def firms(limit, pat, tm):
         filters.append(Attorney.patents == True)
     if tm:
         filters.append(Attorney.trademarks == True)
-    
-    attorneys_query = sa.select(
-        Attorney.consolidated_firm_id,
-        sa.func.count(Attorney.id).label('count')
-    ).where(
-        sa.and_(*filters)
-    ).group_by(Attorney.consolidated_firm_id)
-    
+
+    attorneys_query = (
+        sa.select(
+            Attorney.consolidated_firm_id, sa.func.count(Attorney.id).label("count")
+        )
+        .where(sa.and_(*filters))
+        .group_by(Attorney.consolidated_firm_id)
+    )
+
     firm_counts = db.session.execute(attorneys_query).all()
 
     # Get firm details
@@ -284,7 +343,9 @@ def populate_firm_records():
     click.echo("1. Clears and repopulates the consolidated_firms table")
     click.echo("2. Deduplicates firm names from attorneys using normalized matching")
     click.echo("3. Matches attorneys to consolidated_firms (sets consolidated_firm_id)")
-    click.echo("4. Matches consolidated_firms to incorporated_firms (sets incorporated_firm.consolidated_firm_id)")
+    click.echo(
+        "4. Matches consolidated_firms to incorporated_firms (sets incorporated_firm.consolidated_firm_id)"
+    )
     click.echo("")
 
     try:
@@ -333,15 +394,12 @@ def recover_false_lapses(date):
     live_by_id = {a.external_id: a for a in live_models}
 
     lapsed_rows = (
-        db.session.execute(
-            sa.select(Attorney).where(Attorney.valid_to == target_date)
-        )
+        db.session.execute(sa.select(Attorney).where(Attorney.valid_to == target_date))
         .scalars()
         .all()
     )
     click.echo(
-        f"Found {len(lapsed_rows)} attorney row(s) lapsed on "
-        f"{target_date.isoformat()}."
+        f"Found {len(lapsed_rows)} attorney row(s) lapsed on {target_date.isoformat()}."
     )
 
     reopened = 0
@@ -351,10 +409,7 @@ def recover_false_lapses(date):
     for row in lapsed_rows:
         live = live_by_id.get(row.external_id)
         if live is None:
-            click.echo(
-                f"  KEEP (not on live register): {row.name} "
-                f"[{row.external_id}]"
-            )
+            click.echo(f"  KEEP (not on live register): {row.name} [{row.external_id}]")
             kept += 1
             continue
         # Reopen only if the lapsed row matches the live record on business fields.
@@ -392,6 +447,69 @@ def recover_false_lapses(date):
 
     click.echo("")
     click.echo(
-        f"Done. Reopened {reopened}, inserted {inserted}, kept {kept} "
-        f"(genuine lapse)."
+        f"Done. Reopened {reopened}, inserted {inserted}, kept {kept} (genuine lapse)."
     )
+
+
+@ttipabot.command()
+@click.option(
+    "--from",
+    "from_date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    required=True,
+    help="First date of the reconstruction window (YYYY-MM-DD). A "
+    "snapshot JSON for this date must exist in scrapes/.",
+)
+@click.option(
+    "--to",
+    "to_date",
+    type=click.DateTime(formats=["%Y-%m-%d"]),
+    required=True,
+    help="Last date of the reconstruction window (inclusive).",
+)
+@click.option(
+    "--apply",
+    is_flag=True,
+    default=False,
+    help="Apply the changes to the DB. Without this flag, only a plan "
+    "is printed and no changes are made.",
+)
+@click.option(
+    "--scrapes-dir",
+    type=click.Path(exists=True, file_okay=False),
+    default="scrapes",
+    help="Directory containing the snapshot JSON files (default: scrapes).",
+)
+def reconstruct_history(from_date, to_date, apply, scrapes_dir):
+    """Reconstruct attorney history from preserved scrape JSON snapshots.
+
+    Replays every daily snapshot in the window [FROM, TO] (inclusive) and
+    rewrites the temporal attorneys rows for that window so changes are dated
+    to the day they actually appeared, instead of being lumped onto the next
+    successful scrape. Requires a snapshot JSON for every day in the window.
+
+    By default prints a plan and makes no changes; pass --apply to commit.
+    """
+
+    fd = from_date.date()
+    td = to_date.date()
+    if fd >= td:
+        click.echo("--from must be earlier than --to.")
+        return
+
+    click.echo(
+        f"Reconstructing attorney history for {fd.isoformat()} -> "
+        f"{td.isoformat()} (apply={apply})"
+    )
+    result = history_reconstructor.reconstruct_history(
+        from_date=fd,
+        to_date=td,
+        scrapes_dir=Path(scrapes_dir),
+        apply=apply,
+        verbose=True,
+    )
+    if not apply:
+        click.echo(
+            f"\nDry run: {result['n_changed']} attorneys would be changed. "
+            f"Re-run with --apply to commit."
+        )

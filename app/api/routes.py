@@ -137,17 +137,17 @@ def firms():
     order_by_param = request.args.get("orderBy", default="-attorney_count", type=str)
 
     query = queries.get_firms_query(date, order_by_param)
-    
+
     # Execute query and get results
     results = db.session.execute(query).all()
-    
+
     # Calculate pagination
     total = len(results)
     total_pages = (total + per_page - 1) // per_page
     start = (page - 1) * per_page
     end = start + per_page
     page_items = results[start:end]
-    
+
     # Build items with attorney_count
     items = []
     for firm, attorney_count in page_items:
@@ -156,7 +156,7 @@ def firms():
             "attorney_count": attorney_count,
         }
         items.append(item)
-    
+
     return {
         "items": items,
         "_meta": {
@@ -167,8 +167,12 @@ def firms():
         },
         "_links": {
             "self": f"/api/firms?page={page}&per_page={per_page}&date={date.isoformat()}&orderBy={order_by_param}",
-            "next": f"/api/firms?page={page+1}&per_page={per_page}&date={date.isoformat()}&orderBy={order_by_param}" if page < total_pages else None,
-            "prev": f"/api/firms?page={page-1}&per_page={per_page}&date={date.isoformat()}&orderBy={order_by_param}" if page > 1 else None,
+            "next": f"/api/firms?page={page + 1}&per_page={per_page}&date={date.isoformat()}&orderBy={order_by_param}"
+            if page < total_pages
+            else None,
+            "prev": f"/api/firms?page={page - 1}&per_page={per_page}&date={date.isoformat()}&orderBy={order_by_param}"
+            if page > 1
+            else None,
         },
     }
 
@@ -182,3 +186,8 @@ def oldest_date():
     if oldest:
         return {"oldest_date": oldest.isoformat()}
     return {"oldest_date": datetime.date.today().isoformat()}
+
+
+@bp.route("/boom")
+def boom():
+    raise RuntimeError("SMTP handler smoke test")
