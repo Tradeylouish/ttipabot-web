@@ -1,4 +1,5 @@
 import datetime
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -195,6 +196,21 @@ class ConsolidatedFirm(db.Model, PaginatedAPIMixin):
 
     def __repr__(self):
         return f"<Firm {self.name}>"
+
+    @property
+    def slug(self) -> str:
+        """URL-safe slug: '{id}-{slugified-name}'."""
+        name = self.name or "firm"
+        slug_name = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+        return f"{self.id}-{slug_name}"
+
+    @staticmethod
+    def parse_slug(slug: str) -> Optional[int]:
+        """Extract the firm ID from a slug like '123-dentons'."""
+        try:
+            return int(slug.split('-', 1)[0])
+        except (ValueError, IndexError):
+            return None
 
     def attorney_count(self, as_of_date: datetime.date = None) -> int:
         """Returns the number of attorneys valid as of a given date."""

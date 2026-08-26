@@ -1,36 +1,25 @@
 <!doctype html>
-<html> 
-  <head> 
-    <title>TTIPABot Web</title> 
-    <link rel="stylesheet" href="/static/style.css?v=2" /> 
-  </head> 
-  <body> 
-    <div class="header">
-      <button class="header-btn selected" id="registrations-btn" onclick="selectHeader('registrations')">Registrations</button>
-      <button class="header-btn" id="names-btn" onclick="selectHeader('names')">Names</button>
-      <button class="header-btn" id="movements-btn" onclick="selectHeader('movements')">Movements</button>
-      <button class="header-btn" id="lapses-btn" onclick="selectHeader('lapses')">Lapses</button>
-      <button class="header-btn" id="firms-btn" onclick="selectHeader('firms')">Firms</button>
-    </div>
-    <div class="slider-container">
-      <div class="slider-wrapper">
-        <input type="range" id="date-slider" name="date-slider" class="slider">
-        <label for="date-slider" id="date-label"></label>
-      </div>
-    </div>
-    <audio id="chant"> 
-      <source src="/static/sardaukar-chant.mp3" type="audio/mp3"> 
-    </audio>
-    <audio id="growl">
-      <source src="/static/sardaukar-growl.mp3" type="audio/mp3"> 
-    </audio> 
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TTIPABot — Ritual</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="ritual-page">
+  <audio id="chant" preload="auto">
+    <source src="{{ url_for('static', filename='sardaukar-chant.mp3') }}" type="audio/mpeg">
+  </audio>
+  <audio id="growl" preload="auto">
+    <source src="{{ url_for('static', filename='sardaukar-growl.mp3') }}" type="audio/mpeg">
+  </audio>
 
-    <div class="text" id="Display text" style="opacity:0;"></div>
+  <div class="ritual-display" id="display-text"></div>
 
-    <div class="container" id="Button container">
-        <button type="button" class="button" onclick="getData()" id="start_button">BEGIN RITUAL</button>
-    </div>
-    <script src="/static/chanter.js?v=4" charset="utf-8"></script> 
-  </body> 
+  <div class="ritual-controls" id="button-container">
+    <button type="button" class="ritual-button" id="start-button">BEGIN RITUAL</button>
+  </div>
 
+  <script src="{{ url_for('static', filename='chanter.js') }}" defer></script>
+</body>
 </html>

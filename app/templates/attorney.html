@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}{{ attorney.name }} — Attorney record — TTIPABot{% endblock %}
+
+{% block content %}
+  <main class="site-width detail-layout" id="main-content">
+    <section class="detail-content" aria-labelledby="attorney-heading">
+      <div class="detail-panel">
+        <div class="detail-panel-heading">
+          <div>
+            <p class="overline">Registered IP attorney</p>
+            <h2 id="attorney-heading">{{ attorney.name }}</h2>
+          </div>
+          {% if attorney.valid_to is none %}
+            <span class="status-badge status-current">Current on register</span>
+          {% else %}
+            <span class="status-badge status-lapsed">Not current</span>
+          {% endif %}
+        </div>
+
+        <div class="tag-list detail-tags">
+          {% if attorney.patents %}<span class="tag tag-patent">Patents</span>{% endif %}
+          {% if attorney.trademarks %}<span class="tag tag-trademark">Trade marks</span>{% endif %}
+        </div>
+
+        <dl class="detail-grid">
+          <div class="detail-item detail-item-wide">
+            <dt>Current firm</dt>
+            <dd>
+              {% if attorney.firm_record %}
+                <a href="{{ url_for('main.firm_detail', slug=attorney.firm_record.slug) }}">{{ attorney.firm }}</a>
+              {% else %}
+                {{ attorney.firm or 'Independent / not listed' }}
+              {% endif %}
+            </dd>
+          </div>
+          <div class="detail-item">
+            <dt>Phone</dt>
+            <dd>{% if attorney.phone %}<a href="tel:{{ attorney.phone }}">{{ attorney.phone }}</a>{% else %}—{% endif %}</dd>
+          </div>
+          <div class="detail-item">
+            <dt>Email</dt>
+            <dd>{% if attorney.email %}<a href="mailto:{{ attorney.email }}">{{ attorney.email }}</a>{% else %}—{% endif %}</dd>
+          </div>
+          <div class="detail-item detail-item-wide">
+            <dt>Address</dt>
+            <dd>{{ attorney.address or '—' }}</dd>
+          </div>
+          {% if attorney.additional_information %}
+            <div class="detail-item detail-item-wide detail-note-item">
+              <dt>Additional information</dt>
+              <dd>{{ attorney.additional_information }}</dd>
+            </div>
+          {% endif %}
+          <div class="detail-item">
+            <dt>Record first seen</dt>
+            <dd>{{ history[0].valid_from.isoformat() }}</dd>
+          </div>
+          <div class="detail-item">
+            <dt>Last register update</dt>
+            <dd>{{ attorney.valid_from.isoformat() }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <section class="history-section" aria-labelledby="history-heading">
+        <div class="section-heading-row">
+          <div>
+            <p class="overline">Register history</p>
+            <h2 id="history-heading">Register history</h2>
+          </div>
+          <span class="section-count">{{ history|length }} record{% if history|length != 1 %}s{% endif %}</span>
+        </div>
+        <p class="section-intro">Each entry shows the firm for that period. Other register updates are noted beneath it.</p>
+        <div class="timeline">
+          {% for entry in history_entries %}
+            {% set record = entry.record %}
+            {% set is_current = record.valid_to is none %}
+            <article class="timeline-entry {% if is_current %}current{% endif %}">
+              <span class="timeline-marker" aria-hidden="true"></span>
+              <div class="timeline-date">
+                {{ record.valid_from.isoformat() }}
+                <span>→ {{ record.valid_to.isoformat() if record.valid_to else 'Present' }}</span>
+              </div>
+              <h3>
+                {% if record.firm_record %}
+                  <a href="{{ url_for('main.firm_detail', slug=record.firm_record.slug) }}">{{ record.firm or 'Independent / not listed' }}</a>
+                {% else %}
+                  {{ record.firm or 'Independent / not listed' }}
+                {% endif %}
+              </h3>
+              {% if entry.other_changed_labels %}
+                <p class="timeline-updated"><strong>Other fields updated:</strong> {{ entry.other_changed_labels|join(', ') }}</p>
+              {% endif %}
+              {% if entry.is_initial %}<p class="timeline-event">First recorded entry</p>{% endif %}
+              {% if entry.registration_resumed %}<p class="timeline-event">Registration resumed</p>{% endif %}
+              <p class="timeline-details">
+                {{ record.address or 'Address not listed' }}{% if record.phone %} · {{ record.phone }}{% endif %}{% if record.email %} · {{ record.email }}{% endif %}
+                <span class="timeline-registration">
+                  · <span class="tag-list timeline-registration-tags">
+                    {% if record.patents %}<span class="tag tag-patent">Patents</span>{% endif %}
+                    {% if record.trademarks %}<span class="tag tag-trademark">Trade marks</span>{% endif %}
+                    {% if not record.patents and not record.trademarks %}<span class="timeline-registration-none">Not listed</span>{% endif %}
+                  </span>
+                </span>
+              </p>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <a class="back-link" href="{{ url_for('main.attorney_search') }}">← Back to attorney search</a>
+    </section>
+  </main>
+{% endblock %}

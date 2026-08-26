@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ firm.name }} — Firm record — TTIPABot{% endblock %}
+
+{% block content %}
+  <main class="site-width detail-layout" id="main-content">
+    <section class="detail-content" aria-labelledby="firm-heading">
+      <div class="detail-panel firm-summary-panel">
+        <p class="overline">Consolidated firm</p>
+        <div class="detail-panel-heading">
+          <h2 id="firm-heading">{{ firm.name }}</h2>
+          <span class="status-badge status-current">Register record</span>
+        </div>
+        <div class="firm-summary-stats">
+          <div><strong>{{ current_attorneys|length }}</strong><span>current attorneys</span></div>
+          <div><strong>{{ all_attorneys|length }}</strong><span>attorneys ever linked</span></div>
+          <div><strong>{{ incorporated_firms|length }}</strong><span>incorporated records</span></div>
+        </div>
+      </div>
+
+      {% if aliases %}
+        <section class="detail-section" aria-labelledby="aliases-heading">
+          <div class="section-heading-row">
+            <div>
+              <p class="overline">Register variations</p>
+              <h2 id="aliases-heading">Names used in the register</h2>
+            </div>
+            <span class="section-count">{{ aliases|length }}</span>
+          </div>
+          <p class="section-intro">These variations have been consolidated into this firm record.</p>
+          <div class="alias-tags">
+            {% for alias in aliases %}<a class="alias-tag" href="{{ url_for('main.attorney_search', q=alias) }}">{{ alias }}</a>{% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      <section class="detail-section" aria-labelledby="attorneys-heading">
+        <div class="section-heading-row">
+          <div>
+            <p class="overline">Attorneys</p>
+            <h2 id="attorneys-heading">Attorneys</h2>
+          </div>
+          <div class="scope-toggle" role="tablist" aria-label="Filter attorneys">
+            <button type="button" class="scope-toggle-btn active" data-scope="current" role="tab" aria-selected="true">
+              Current <span class="scope-toggle-count">{{ current_attorneys|length }}</span>
+            </button>
+            <button type="button" class="scope-toggle-btn" data-scope="all" role="tab" aria-selected="false">
+              All time <span class="scope-toggle-count">{{ all_attorneys|length }}</span>
+            </button>
+          </div>
+        </div>
+        {% if all_attorneys %}
+          <div class="people-list" id="attorney-list" data-scope="current">
+            {% for attorney in all_attorneys %}
+              {% set is_current = attorney.valid_to is none %}
+              <a class="person-row{{ '' if is_current else ' person-former' }}"
+                 data-current="{{ is_current|lower }}"
+                 href="{{ url_for('main.attorney_detail', external_id=attorney.external_id) }}">
+                <span>
+                  <strong>{{ attorney.name }}</strong>
+                  {% if is_current %}
+                    <small>{% if attorney.patents %}Patents{% endif %}{% if attorney.patents and attorney.trademarks %} · {% endif %}{% if attorney.trademarks %}Trade marks{% endif %}</small>
+                  {% else %}
+                    <small>Last linked {{ attorney.valid_to.isoformat() }}</small>
+                  {% endif %}
+                </span>
+                <span aria-hidden="true">→</span>
+              </a>
+            {% endfor %}
+          </div>
+          {% if current_attorneys|length == 0 %}
+            <p class="no-data attorney-no-current">No currently registered attorneys are linked to this firm.</p>
+          {% endif %}
+        {% else %}
+          <p class="no-data">No attorneys have been linked to this firm.</p>
+        {% endif %}
+      </section>
+
+      <section class="detail-section" aria-labelledby="incorporated-heading">
+        <div class="section-heading-row">
+          <div>
+            <p class="overline">Firm information</p>
+            <h2 id="incorporated-heading">Related incorporated firms</h2>
+          </div>
+          <span class="section-count">{{ incorporated_firms|length }}</span>
+        </div>
+        {% if incorporated_firms %}
+          <div class="incorporated-list">
+            {% for incorporated in incorporated_firms %}
+              <article class="incorporated-card">
+                <h3>{{ incorporated.name }}</h3>
+                <dl class="contact-list">
+                  {% if incorporated.website %}<div><dt>Website</dt><dd><a href="{{ incorporated.website }}" target="_blank" rel="noopener noreferrer">{{ incorporated.website }}</a></dd></div>{% endif %}
+                  {% if incorporated.phone %}<div><dt>Phone</dt><dd><a href="tel:{{ incorporated.phone }}">{{ incorporated.phone }}</a></dd></div>{% endif %}
+                  {% if incorporated.email %}<div><dt>Email</dt><dd><a href="mailto:{{ incorporated.email }}">{{ incorporated.email }}</a></dd></div>{% endif %}
+                  {% if incorporated.address %}<div><dt>Address</dt><dd>{{ incorporated.address }}</dd></div>{% endif %}
+                </dl>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="no-data">No incorporated firms are linked to this consolidated record.</p>
+        {% endif %}
+      </section>
+
+      <a class="back-link" href="{{ url_for('main.firm_search') }}">← Back to firm search</a>
+    </section>
+  </main>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (function () {
+      const toggle = document.querySelector('.scope-toggle');
+      const list = document.getElementById('attorney-list');
+      if (!toggle || !list) return;
+      toggle.addEventListener('click', function (event) {
+        const button = event.target.closest('.scope-toggle-btn');
+        if (!button) return;
+        const scope = button.getAttribute('data-scope');
+        toggle.querySelectorAll('.scope-toggle-btn').forEach(function (btn) {
+          const active = btn === button;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-selected', String(active));
+        });
+        list.setAttribute('data-scope', scope);
+      });
+    }());
+  </script>
+{% endblock %}

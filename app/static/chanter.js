@@ -1,4 +1,4 @@
-let quotes = [
+const quotes = [
   "Power over patents is power over all.",
   "Andrew Blattman commands it. It is done.",
   "Indefiniteness is the mind-killer.",
@@ -9,213 +9,108 @@ let quotes = [
 ];
 
 function getDailyIndex() {
-  let today = new Date();
-  return today.getDate() % quotes.length;
+  return new Date().getDate() % quotes.length;
 }
 
-function selectHeader(selected) {
-  const buttons = document.querySelectorAll(".header-btn");
-  buttons.forEach((btn) => {
-    btn.classList.remove("selected");
-    btn.style.color = "#888";
-  });
-  const selectedBtn = document.getElementById(selected + "-btn");
-  selectedBtn.classList.add("selected");
-  selectedBtn.style.color = "#fff";
-  window.selectedHeader = selected;
-}
+async function getData() {
+  const startButton = document.getElementById("start-button");
+  if (startButton) startButton.disabled = true;
 
-document.addEventListener("DOMContentLoaded", () => {
-  selectHeader("registrations");
-  initializeSlider();
-});
-
-function initializeSlider() {
-  fetch("/api/oldest-date")
-    .then((response) => response.json())
-    .then((data) => {
-      const oldestDate = new Date(data.oldest_date);
-      const today = new Date();
-
-      const slider = document.getElementById("date-slider");
-      const dateLabel = document.getElementById("date-label");
-
-      const timeDiff = today.getTime() - oldestDate.getTime();
-      const dayDiff = Math.round(timeDiff / (1000 * 3600 * 24));
-
-      slider.min = 0;
-      slider.max = dayDiff;
-      slider.value = dayDiff;
-
-      function updateLabel(value) {
-        const currentDate = new Date(oldestDate);
-        currentDate.setDate(oldestDate.getDate() + parseInt(value));
-        dateLabel.textContent = currentDate.toISOString().split("T")[0];
-        
-        // Update label position
-        const sliderRect = slider.getBoundingClientRect();
-        const thumbPosition = ((value - slider.min) / (slider.max - slider.min)) * sliderRect.width;
-        dateLabel.style.left = `${thumbPosition}px`;
-      }
-
-      updateLabel(slider.value);
-
-      slider.addEventListener("input", () => {
-        updateLabel(slider.value);
-      });
-    });
-}
-
-function getData() {
-  let selected = window.selectedHeader || "registrations";
-  let data_url;
-
-  const dateLabel = document.getElementById("date-label");
-  const selectedDate = dateLabel.textContent;
-
-  switch (selected) {
-    case "registrations":
-      data_url = `/api/registrations?filter=pat&last_date=${selectedDate}`;
-      break;
-    case "names":
-      data_url = `/api/attorneys?orderBy=-name_length&date=${selectedDate}`;
-      break;
-    case "movements":
-      data_url = `/api/movements?last_date=${selectedDate}`;
-      break;
-    case "lapses":
-      data_url = `/api/lapses?last_date=${selectedDate}`;
-      break;
-    case "firms":
-      data_url = `/api/firms?orderBy=-attorney_count&date=${selectedDate}`;
-      break;
-    default:
-      data_url = `/api/registrations?filter=pat&last_date=${selectedDate}`;
+  try {
+    // The ritual has one job: present new registrations.  Date ranges,
+    // ordering and the other register views belong on the main directory.
+    const response = await fetch("/api/registrations?per_page=100");
+    if (!response.ok) throw new Error(`Register request failed (${response.status})`);
+    const data = await response.json();
+    startChant(data);
+  } catch (error) {
+    console.error(error);
+    if (startButton) startButton.disabled = false;
   }
-  fetch(data_url)
-    .then((response) => response.json())
-    .then((data) => {
-      startChant(data);
-    });
 }
 
 function startChant(data) {
-  let attorneys = data.items;
-  console.log(attorneys);
-  // Hide the button while chanting
-  const button = document.getElementById("Button container");
-  button.style.display = "none";
+  const attorneys = Array.isArray(data.items) ? data.items : [];
+  const display = document.getElementById("display-text");
+  const controls = document.getElementById("button-container");
+  const startButton = document.getElementById("start-button");
+  const chant = document.getElementById("chant");
+  const growl = document.getElementById("growl");
+
+  if (!display || !controls || !startButton) return;
+
+  const lines = attorneys.length
+    ? attorneys.map((attorney) => {
+        const firm = attorney.firm ? ` of House ${attorney.firm}.` : ".";
+        return `${attorney.name}${firm}`;
+      })
+    : [quotes[getDailyIndex()]];
+
+  controls.classList.add("is-hidden");
+  display.classList.add("is-active");
+
   let audioFinished = false;
-  let lines = [];
-  let selected = window.selectedHeader || "registrations";
+  let linesFinished = false;
+  let lineIndex = 0;
+  let lineTimer;
 
-  //  Random quote if there's no new attorneys
-  if (attorneys.length === 0) {
-    lines.push(quotes[getDailyIndex(quotes.length)]);
-    startAudio("growl");
-  } else {
-    for (let i = 0; i < attorneys.length; i++) {
-      switch (selected) {
-        case "registrations":
-          lines.push(
-            attorneys[i].name + " of House " + attorneys[i].firm + ".",
-          );
-          break;
-        case "names":
-          lines.push(
-            attorneys[i].name +
-              ". " +
-              attorneys[i].name_length +
-              " characters.",
-          );
-          break;
-        case "movements":
-          lines.push(
-            attorneys[i].new_name +
-              " shifts allegiance from " +
-              attorneys[i].old_firm +
-              " to " +
-              attorneys[i].new_firm +
-              ".",
-          );
-          break;
-        case "lapses":
-          lines.push("The desert has taken " + attorneys[i].name + ".");
-          break;
-        case "firms":
-          lines.push(
-            attorneys[i].name + " commands " + attorneys[i].attorney_count + " attorneys.",
-          );
-          break;
-        default:
-          lines.push(
-            attorneys[i].name + " of House " + attorneys[i].firm + ".",
-          );
-      }
-    }
-    startAudio("chant");
-  }
+  const finishIfReady = () => {
+    if (!audioFinished || !linesFinished) return;
+    display.classList.remove("is-active");
+    controls.classList.remove("is-hidden");
+    startButton.disabled = false;
+  };
 
-  // Set up text fading
-  const fading_text = document.getElementById("Display text");
-  let faded_in = false;
-  let opacity = 0;
-  let timestamp = performance.now();
-  // Constants for timing adjustment
-  const TIME_BEFORE_FADEIN = 1300;
-  const TIME_BEFORE_FADEOUT = 4300;
-  const FADE_RATE = 0.03;
-
-  const intervalID = setInterval(fadeText, 16);
-  let counter = 0;
-  fading_text.innerHTML = lines[0];
-
-  function fadeText() {
-    let elapsedTime = performance.now() - timestamp;
-
-    if (!faded_in & (elapsedTime >= TIME_BEFORE_FADEIN)) {
-      opacity = Math.min(opacity + FADE_RATE, 1);
-      if (opacity === 1) {
-        faded_in = true;
-        timestamp = performance.now();
-      }
-    } else if (faded_in & (elapsedTime >= TIME_BEFORE_FADEOUT)) {
-      opacity = Math.max(opacity - FADE_RATE, 0);
-      if (opacity === 0) {
-        faded_in = false;
-        timestamp = performance.now();
-        nextLine();
-      }
-    }
-    fading_text.style.opacity = opacity;
-  }
-
-  function nextLine() {
-    counter++;
-    if (counter >= lines.length) {
-      fading_text.innerHTML = "";
-      clearInterval(intervalID);
-      // If the audio has finished, show the button
-      if (audioFinished) {
-        button.style.display = "block";
-      }
-    } else {
-      fading_text.innerHTML = lines[counter];
-    }
-  }
-
-  function startAudio(id) {
-    let audio = document.getElementById(id);
-    audioFinished = false;
-    audio.play();
-    audio.addEventListener("ended", atAudioEnd);
-  }
-
-  function atAudioEnd(evt) {
-    // If the audio ends and the chanting is done, show the button
+  const finishAudio = () => {
     audioFinished = true;
-    if (counter >= lines.length) {
-      button.style.display = "block";
+    finishIfReady();
+  };
+
+  const playAudio = (audio) => {
+    if (!audio) {
+      finishAudio();
+      return;
     }
-  }
+    audio.currentTime = 0;
+    audio.addEventListener("ended", finishAudio, { once: true });
+    audio.addEventListener("error", finishAudio, { once: true });
+    const playback = audio.play();
+    if (playback && typeof playback.catch === "function") {
+      playback.catch(finishAudio);
+    }
+  };
+
+  const showLine = () => {
+    display.classList.remove("is-line-visible");
+    display.textContent = lines[lineIndex];
+    // Allow the opacity transition to start from zero for each line.
+    window.requestAnimationFrame(() => display.classList.add("is-line-visible"));
+
+    lineTimer = window.setTimeout(() => {
+      display.classList.remove("is-line-visible");
+      window.setTimeout(() => {
+        lineIndex += 1;
+        if (lineIndex >= lines.length) {
+          linesFinished = true;
+          finishIfReady();
+        } else {
+          showLine();
+        }
+      }, 850);
+    }, 4300);
+  };
+
+  // The growl is used for a quiet register update; otherwise use the chant.
+  playAudio(attorneys.length ? chant : growl);
+  showLine();
+
+  // A damaged audio file should never leave the ritual controls hidden.
+  window.setTimeout(() => {
+    if (!audioFinished) finishAudio();
+  }, Math.max(7000, lines.length * 5200));
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const startButton = document.getElementById("start-button");
+  if (startButton) startButton.addEventListener("click", getData);
+});

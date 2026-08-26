@@ -1,6 +1,5 @@
 import datetime
 
-import sqlalchemy as sa
 from flask import request
 
 from app import db, queries
@@ -180,12 +179,7 @@ def firms():
 @bp.route("/oldest-date")
 def oldest_date():
     """Returns the oldest date in the database."""
-    oldest = db.session.execute(
-        sa.select(sa.func.min(Attorney.valid_from))
-    ).scalar_one_or_none()
-    if oldest:
-        return {"oldest_date": oldest.isoformat()}
-    return {"oldest_date": datetime.date.today().isoformat()}
+    return {"oldest_date": queries.get_oldest_date().isoformat()}
 
 
 @bp.route("/boom")

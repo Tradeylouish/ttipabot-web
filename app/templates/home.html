@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}{% if view == 'attorneys' %}Find an IP attorney{% elif view == 'firms' %}Find an IP firm{% elif view == 'updates' %}Attorney updates{% else %}Search the public register{% endif %} — TTIPABot{% endblock %}
+
+{% block content %}
+  <main class="site-width register-layout" id="main-content">
+    <form class="search-panel" method="get" action="{{ search_action }}">
+        {% if view not in ['attorneys', 'firms'] %}<input type="hidden" name="view" value="{{ view }}">{% endif %}
+        <div class="form-field search-field">
+          <label for="register-search">{% if view == 'firms' %}Firm name{% else %}Attorney name, firm name and/or location{% endif %}</label>
+          <div class="search-input-row">
+            <input id="register-search" name="q" value="{{ query_text }}" type="search" maxlength="100" placeholder="{% if view == 'firms' %}Search by firm name{% else %}Search keyword{% endif %}" autocomplete="off">
+            <button class="button button-primary" type="submit">Search</button>
+          </div>
+        </div>
+
+        <div class="search-options">
+          <fieldset class="filter-fieldset">
+            <legend>IP type</legend>
+            <label class="check-option">
+              <input type="checkbox" name="filter" value="pat" {% if pat or no_type_filter %}checked{% endif %}>
+              <span>Patents</span>
+            </label>
+            <label class="check-option">
+              <input type="checkbox" name="filter" value="tm" {% if tm or no_type_filter %}checked{% endif %}>
+              <span>Trade marks</span>
+            </label>
+          </fieldset>
+
+          {% if view in ['attorneys', 'firms'] %}
+            <div class="form-field compact-field">
+              <label for="as-of">Register snapshot</label>
+              <input id="as-of" name="as_of" type="date" value="{{ snapshot_date.isoformat() }}" min="{{ oldest_date.isoformat() }}" max="{{ today_iso }}">
+            </div>
+          {% else %}
+            <div class="date-range-fields">
+              <div class="form-field compact-field">
+                <label for="from-date">From</label>
+                <input id="from-date" name="from_date" type="date" value="{{ from_date.isoformat() }}" min="{{ oldest_date.isoformat() }}" max="{{ today_iso }}">
+              </div>
+              <div class="form-field compact-field">
+                <label for="to-date">To</label>
+                <input id="to-date" name="to_date" type="date" value="{{ to_date.isoformat() }}" min="{{ oldest_date.isoformat() }}" max="{{ today_iso }}">
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        {% if view == 'updates' %}
+          <div class="update-filters">
+            <fieldset class="update-fields-fieldset">
+              <legend>Fields to include for “Update” events</legend>
+              <div class="update-fields-options">
+                {% for field in update_fields %}
+                  <label class="check-option update-field-option">
+                    <input type="checkbox" name="field" value="{{ field }}" {% if field in selected_update_fields %}checked{% endif %}>
+                    <span>{{ update_field_labels[field] }}</span>
+                  </label>
+                {% endfor %}
+              </div>
+            </fieldset>
+            <div class="form-field update-type-field">
+              <label for="update-type">Update type</label>
+              <select id="update-type" name="update_type">
+                <option value="">All update types</option>
+                {% for type, label in update_type_labels.items() %}
+                  <option value="{{ type }}" {% if selected_update_type == type %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if view in ['attorneys', 'firms'] %}
+          <div class="sort-row">
+            <label for="order-by">Sort by</label>
+            <select id="order-by" name="orderBy">
+              {% if view == 'firms' %}
+                <option value="-attorney_count" {% if order_by == '-attorney_count' %}selected{% endif %}>Number of attorneys</option>
+                <option value="name" {% if order_by == 'name' %}selected{% endif %}>Firm name A–Z</option>
+              {% else %}
+                <option value="name" {% if order_by == 'name' %}selected{% endif %}>Name A–Z</option>
+                <option value="firm" {% if order_by == 'firm' %}selected{% endif %}>Firm A–Z</option>
+                <option value="-name_length" {% if order_by == '-name_length' %}selected{% endif %}>Longest name first</option>
+              {% endif %}
+            </select>
+          </div>
+        {% endif %}
+
+        <div class="form-actions">
+          <button class="button button-primary" type="submit">Search register</button>
+          <a class="button button-link" href="{{ clear_url }}">Clear</a>
+        </div>
+      </form>
+
+      <div class="results-header">
+        <div>
+          <p class="overline">{{ view_label }}</p>
+          <h3>Showing {{ result_total }} result{% if result_total != 1 %}s{% endif %}</h3>
+        </div>
+        <p class="results-context">{{ result_context }}</p>
+      </div>
+
+      {% if items %}
+        <div class="result-list" aria-live="polite">
+          {% if view == 'attorneys' %}
+            {% for attorney in items %}
+              <article class="result-card attorney-result">
+                <div class="result-card-main">
+                  <p class="result-type">IP attorney</p>
+                  <h4><a href="{{ url_for('main.attorney_detail', external_id=attorney.external_id) }}">{{ attorney.name }}</a></h4>
+                  <div class="result-firm">
+                    <span class="result-label">Firm</span>
+                    {% if attorney.firm_record %}
+                      <a href="{{ url_for('main.firm_detail', slug=attorney.firm_record.slug) }}">{{ attorney.firm }}</a>
+                    {% else %}
+                      {{ attorney.firm or 'Independent / not listed' }}
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="result-card-side">
+                  <div class="tag-list">
+                    {% if attorney.patents %}<span class="tag tag-patent">Patents</span>{% endif %}
+                    {% if attorney.trademarks %}<span class="tag tag-trademark">Trade marks</span>{% endif %}
+                  </div>
+                  {% if attorney.address %}<p class="result-address">{{ attorney.address }}</p>{% endif %}
+                  {% if attorney.email %}<a class="result-contact" href="mailto:{{ attorney.email }}">{{ attorney.email }}</a>{% endif %}
+                </div>
+              </article>
+            {% endfor %}
+
+          {% elif view == 'firms' %}
+            {% for entry in items %}
+              <article class="result-card firm-result">
+                <div class="result-card-main">
+                  <p class="result-type">Consolidated firm</p>
+                  <h4><a href="{{ url_for('main.firm_detail', slug=entry.firm.slug) }}">{{ entry.firm.name }}</a></h4>
+                  {% if entry.firm.incorporated_firms %}<p class="result-muted">{{ entry.firm.incorporated_firms|length }} linked incorporated record{% if entry.firm.incorporated_firms|length != 1 %}s{% endif %}</p>{% endif %}
+                </div>
+                <div class="firm-count">
+                  <strong>{{ entry.attorney_count }}</strong>
+                  <span>attorney{% if entry.attorney_count != 1 %}s{% endif %}</span>
+                </div>
+              </article>
+            {% endfor %}
+
+          {% elif view == 'updates' %}
+            {% for update in items %}
+              <article class="result-card update-result">
+                <div class="change-date"><span>{{ update.update_date.isoformat() }}</span></div>
+                <div class="result-card-main">
+                  <p class="result-type">{{ update.update_type_label }}</p>
+                  <h4><a href="{{ url_for('main.attorney_detail', external_id=update.attorney.external_id) }}">{{ update.attorney.name }}</a></h4>
+                  {% if update.changed_field_labels %}
+                    <p class="result-muted">Changed: {{ update.changed_field_labels|join(', ') }}</p>
+                  {% else %}
+                    <p class="result-muted">{{ update.attorney.firm or 'Independent / not listed' }}</p>
+                  {% endif %}
+                </div>
+                <div class="tag-list">
+                  {% if update.attorney.patents %}<span class="tag tag-patent">Patents</span>{% endif %}
+                  {% if update.attorney.trademarks %}<span class="tag tag-trademark">Trade marks</span>{% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          {% endif %}
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+          <nav class="pagination" aria-label="Results pages">
+            {% if pagination.has_prev %}<a href="{{ pagination.prev_url }}" aria-label="Previous page">‹ Previous</a>{% else %}<span class="disabled">‹ Previous</span>{% endif %}
+            <span>Page {{ pagination.page }} of {{ pagination.total_pages }}</span>
+            {% if pagination.has_next %}<a href="{{ pagination.next_url }}" aria-label="Next page">Next ›</a>{% else %}<span class="disabled">Next ›</span>{% endif %}
+          </nav>
+        {% endif %}
+      {% else %}
+        <div class="empty-results">
+          <div class="empty-icon" aria-hidden="true">⌕</div>
+          <h3>We couldn't find anything to match your search.</h3>
+          <p>Try checking your spelling, using fewer keywords, or clearing the filters.</p>
+          <a class="button button-secondary" href="{{ clear_url }}">Clear search</a>
+        </div>
+      {% endif %}
+  </main>
+{% endblock %}
