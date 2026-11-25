@@ -1,5 +1,6 @@
 import datetime
 import json
+import ssl
 from pathlib import Path
 
 import requests
@@ -15,6 +16,35 @@ from app.data_migrator import (
     update_attorney_firm_links,
 )
 from app.models import Attorney, IncorporatedFirm
+
+
+_TTIPAB_INTERMEDIATE_CERT = (
+    Path(__file__).parent
+    / "certs"
+    / "digicert-global-g2-tls-rsa-sha256-2020-ca1.pem"
+)
+
+
+class _SSLContextAdapter(HTTPAdapter):
+    """HTTPAdapter using an explicitly configured, verifying SSL context."""
+
+    def __init__(self, ssl_context: ssl.SSLContext, **kwargs):
+        self._ssl_context = ssl_context
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["ssl_context"] = self._ssl_context
+        return super().init_poolmanager(
+            connections, maxsize, block=block, **pool_kwargs
+        )
+
+
+def _ttipab_ssl_context() -> ssl.SSLContext:
+    # The upstream endpoint omits this intermediate. Retain Requests' normal
+    # Certifi roots and add the issuer locally so OpenSSL can build the chain.
+    context = ssl.create_default_context(cafile=requests.certs.where())
+    context.load_verify_locations(cafile=str(_TTIPAB_INTERMEDIATE_CERT))
+    return context
 
 
 def scrape_register() -> None:
@@ -218,7 +248,12 @@ def ttipab_request(count: int, timeout: int = 30, max_retries: int = 3):
         backoff_factor=0.5,  # Will sleep for [0.5, 1, 2] seconds between retries
         status_forcelist=[500, 502, 503, 504],  # Retry on these HTTP status codes
     )
-    session.mount("https://", HTTPAdapter(max_retries=retry))
+    # Scope the supplemental issuer to this host; normal certificate and
+    # hostname verification remain enabled by the SSL context.
+    session.mount(
+        "https://www.ttipattorney.gov.au/",
+        _SSLContextAdapter(_ttipab_ssl_context(), max_retries=retry),
+    )
 
     return session.get(url, timeout=timeout)
 
